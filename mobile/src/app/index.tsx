@@ -1,5 +1,6 @@
+import { useRouter } from "expo-router";
+
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,6 +9,7 @@ import {
 } from "react-native";
 
 export default function HomeScreen() {
+  const router = useRouter();
   return (
     <ScrollView
       style={styles.page}
@@ -42,13 +44,8 @@ export default function HomeScreen() {
       <TouchableOpacity
         style={styles.primaryButton}
         activeOpacity={0.8}
-        onPress={() =>
-          Alert.alert(
-            "Farmer registration",
-            "We will build the farmer form next."
-          )
-        }
-      >
+        onPress={() => router.push("/farmer")}
+>
         <Text style={styles.primaryButtonTitle}>I’m a farmer</Text>
         <Text style={styles.primaryButtonText}>
           Register produce and join a supply group
@@ -58,12 +55,7 @@ export default function HomeScreen() {
       <TouchableOpacity
         style={styles.secondaryButton}
         activeOpacity={0.8}
-        onPress={() =>
-          Alert.alert(
-            "Buyer orders",
-            "We will build the buyer order form next."
-          )
-        }
+        onPress={() => router.push("/buyer")}
       >
         <Text style={styles.secondaryButtonTitle}>I’m a buyer</Text>
         <Text style={styles.secondaryButtonText}>
