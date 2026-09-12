@@ -1,0 +1,82 @@
+# ==================================================
+# SECRET KEYS — NEVER COMMIT
+# ==================================================
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
+*.jks
+*.keystore
+
+# ==================================================
+# PYTHON
+# ==================================================
+**/.venv/
+**/venv/
+**/env/
+**/.conda/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+**/.ipynb_checkpoints/
+**/build/
+backend/uploads/
+backend/tmp/
+
+# ==================================================
+# NODE / EXPO
+# ==================================================
+**/node_modules/
+**/.expo/
+**/.expo-shared/
+**/dist/
+**/web-build/
+**/.cache/
+**/.metro-health-check*
+**/expo-env.d.ts
+**/*.tsbuildinfo
+
+# Generated native folders for managed Expo
+mobile/ios/
+mobile/android/
+
+# ==================================================
+# PACKAGE MANAGER LOGS
+# ==================================================
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/*.log
+
+# ==================================================
+# EDITORS AND AI TOOLS
+# ==================================================
+**/.vscode/
+**/.idea/
+**/.claude/
+
+# ==================================================
+# MACOS
+# ==================================================
+**/.DS_Store
+**/._*
+**/.AppleDouble
+**/.LSOverride
+
+# ==================================================
+# TEMPORARY FILES
+# ==================================================
+**/*.tmp
+**/*.temp
+**/*.swp
+**/*~
