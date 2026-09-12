@@ -44,20 +44,13 @@ app.add_middleware(
 )
 
 
-def demo_assessment(
-    *,
-    brix: float,
-    defects_pct: float,
-    firmness: str,
-    has_image: bool,
-) -> QualityAssessment:
-    visual_score = max(45, min(97, round(86 + (brix - 14) * 3 - defects_pct * 1.4)))
-    if brix >= 14.5 and defects_pct <= 3:
-        grade = "Premium"
-    elif brix >= 12 and defects_pct <= 7:
-        grade = "Standard"
-    else:
-        grade = "Processing"
+def demo_assessment(*, condition: str, has_image: bool) -> QualityAssessment:
+    by_condition = {
+        "Premium": ("Premium", 91),
+        "Standard": ("Standard", 82),
+        "Economy": ("Processing", 68),
+    }
+    grade, visual_score = by_condition.get(condition, ("Standard", 78))
 
     return QualityAssessment(
         grade=grade,
@@ -65,13 +58,11 @@ def demo_assessment(
         confidence=0.84 if has_image else 0.64,
         observations=[
             "Produce image captured for visual review" if has_image else "No image supplied; confidence reduced",
-            f"{brix:.1f} Brix entered by the farmer",
-            f"{defects_pct:.1f}% visible defects reported",
-            f"{firmness} firmness profile",
+            f"Condition reported by the seller: {condition}",
         ],
         warning=(
-            "This is a preliminary screen. Taste, food safety and internal defects require "
-            "a physical sample and verified measurements."
+            "This is a preliminary screen based on seller-provided details. "
+            "Buyers can ask the seller for more before confirming."
         ),
         source="demo",
     )
@@ -83,9 +74,7 @@ def openai_assessment(
     content_type: str,
     crop: str,
     variety: str,
-    brix: float,
-    defects_pct: float,
-    firmness: str,
+    condition: str,
     notes: str,
 ) -> QualityAssessment:
     from openai import OpenAI
@@ -96,15 +85,13 @@ def openai_assessment(
     prompt = f"""
 You are screening a produce lot for FarmPool. Inspect only externally visible evidence in the
 image. Do not claim to see taste, sweetness, food safety, internal damage, origin or anything that
-cannot be observed. Treat the farmer-entered Brix, defect percentage and firmness as unverified
-measurements which require a physical checkpoint.
+cannot be observed. Treat the seller-entered condition as unverified information which requires a
+physical checkpoint.
 
 Lot data:
 - Crop: {crop}
 - Variety: {variety}
-- Entered Brix: {brix}
-- Entered visible defects: {defects_pct}%
-- Entered firmness: {firmness}
+- Seller-reported condition: {condition}
 - Farmer notes: {notes or "None"}
 
 Return a preliminary grade, a 0-100 visual-condition score, calibrated confidence, and 2-5 short
@@ -155,9 +142,7 @@ def health() -> dict[str, object]:
 async def analyse_produce(
     crop: str = Form(...),
     variety: str = Form(...),
-    brix: float = Form(...),
-    defects_pct: float = Form(...),
-    firmness: str = Form(...),
+    condition: str = Form(...),
     notes: str = Form(""),
     file: UploadFile | None = File(default=None),
 ) -> QualityAssessment:
@@ -173,21 +158,14 @@ async def analyse_produce(
                 content_type=(file.content_type or "image/jpeg") if file else "image/jpeg",
                 crop=crop,
                 variety=variety,
-                brix=brix,
-                defects_pct=defects_pct,
-                firmness=firmness,
+                condition=condition,
                 notes=notes,
             )
         except Exception:
             # The judge demo must keep working if the network or model is unavailable.
             pass
 
-    return demo_assessment(
-        brix=brix,
-        defects_pct=defects_pct,
-        firmness=firmness,
-        has_image=bool(image_bytes),
-    )
+    return demo_assessment(condition=condition, has_image=bool(image_bytes))
 
 
 @app.post("/transcribe")

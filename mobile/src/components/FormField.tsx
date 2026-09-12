@@ -5,9 +5,10 @@ import { colors } from '@/lib/theme';
 type Props = TextInputProps & {
   label: string;
   hint?: string;
+  error?: string;
 };
 
-export function FormField({ label, hint, multiline, style, ...props }: Props) {
+export function FormField({ label, hint, error, multiline, style, ...props }: Props) {
   return (
     <View style={styles.group}>
       <View style={styles.labelRow}>
@@ -18,8 +19,9 @@ export function FormField({ label, hint, multiline, style, ...props }: Props) {
         {...props}
         multiline={multiline}
         placeholderTextColor={colors.faint}
-        style={[styles.input, multiline && styles.multiline, style]}
+        style={[styles.input, multiline && styles.multiline, error ? styles.inputError : null, style]}
       />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 }
@@ -57,6 +59,15 @@ const styles = StyleSheet.create({
     minHeight: 94,
     paddingTop: 14,
     textAlignVertical: 'top',
+  },
+  inputError: {
+    borderColor: colors.danger,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 6,
   },
 });
 

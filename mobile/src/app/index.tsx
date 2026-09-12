@@ -106,7 +106,7 @@ export default function HomeScreen() {
           <Text style={styles.howEyebrow}>THE AI COORDINATOR</Text>
           <Text style={styles.howTitle}>What becomes possible</Text>
           {[
-            ['01', 'Screens each lot', 'Combines photos with reported Brix, defects and firmness.'],
+            ['01', 'Screens each lot', 'Photos plus simple seller-provided produce details.'],
             ['02', 'Protects taste consistency', 'Only groups the same crop, variety and quality profile.'],
             ['03', 'Builds the delivery', 'Selects farms, allocates quantity and prices a shared route.'],
             ['04', 'Explains every decision', 'Shows accepted and rejected farms with clear reasons.'],

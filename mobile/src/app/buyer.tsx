@@ -13,102 +13,133 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChoicePills } from '@/components/ChoicePills';
+import { DateField } from '@/components/DateField';
 import { FormField } from '@/components/FormField';
+import { QuantityField } from '@/components/QuantityField';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { SelectField } from '@/components/SelectField';
 import { useFarmPool } from '@/context/FarmPoolContext';
+import { CROPS, OTHER_VARIETY, QuantityUnit, cropInfo, isEstimatedUnit, toKg } from '@/data/crops';
 import { coordinatesFor, demoOrder } from '@/data/demo';
+import { newId } from '@/lib/ids';
 import { colors } from '@/lib/theme';
-import { Firmness } from '@/lib/types';
+import { MinimumCondition } from '@/lib/types';
+import { FieldErrors, validateOrder } from '@/lib/validation';
 
 type FormState = {
   businessName: string;
   crop: string;
   variety: string;
+  otherVariety: string;
   quantity: string;
+  quantityUnit: QuantityUnit;
   deliveryLocation: string;
   deliveryDate: string;
   maximumDeliveredPrice: string;
-  minimumBrix: string;
-  maximumDefects: string;
-  firmness: Firmness;
+  minimumCondition: MinimumCondition;
 };
 
 const emptyForm: FormState = {
   businessName: '',
   crop: '',
   variety: '',
+  otherVariety: '',
   quantity: '',
+  quantityUnit: 'kg',
   deliveryLocation: '',
   deliveryDate: '',
   maximumDeliveredPrice: '',
-  minimumBrix: '',
-  maximumDefects: '',
-  firmness: 'Medium',
+  minimumCondition: 'Any',
 };
 
 export default function BuyerScreen() {
   const router = useRouter();
   const { createOrderAndMatch } = useFarmPool();
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [errors, setErrors] = useState<FieldErrors>({});
+
+  const selectedCrop = cropInfo(form.crop);
 
   function updateField<Key extends keyof FormState>(field: Key, value: FormState[Key]) {
     setForm((current) => ({ ...current, [field]: value }));
+    setErrors((current) => (current[field] ? { ...current, [field]: '' } : current));
+  }
+
+  function changeCrop(crop: string) {
+    setForm((current) => ({ ...current, crop, variety: '', otherVariety: '' }));
+    setErrors((current) => ({ ...current, crop: '', variety: '', otherVariety: '' }));
   }
 
   function fillDemo() {
+    setErrors({});
     setForm({
       businessName: demoOrder.businessName,
       crop: demoOrder.crop,
       variety: demoOrder.variety,
+      otherVariety: '',
       quantity: String(demoOrder.quantityKg),
+      quantityUnit: 'kg',
       deliveryLocation: demoOrder.deliveryLocation,
       deliveryDate: demoOrder.deliveryDate,
       maximumDeliveredPrice: String(demoOrder.maximumDeliveredPricePerKg),
-      minimumBrix: String(demoOrder.minimumBrix),
-      maximumDefects: String(demoOrder.maximumDefectsPct),
-      firmness: demoOrder.firmness,
+      minimumCondition: demoOrder.minimumCondition,
     });
   }
 
   function findSupply() {
-    const quantityKg = Number(form.quantity);
-    const maximumDeliveredPricePerKg = Number(form.maximumDeliveredPrice);
-    const minimumBrix = Number(form.minimumBrix);
-    const maximumDefectsPct = Number(form.maximumDefects);
+    const enteredQuantity = Number(form.quantity);
+    const quantityKg = Number.isFinite(enteredQuantity)
+      ? toKg(enteredQuantity, form.quantityUnit, selectedCrop)
+      : 0;
 
-    if (
-      !form.businessName.trim() ||
-      !form.crop.trim() ||
-      !form.variety.trim() ||
-      !form.deliveryLocation.trim() ||
-      !form.deliveryDate.trim() ||
-      !Number.isFinite(quantityKg) ||
-      quantityKg <= 0 ||
-      !Number.isFinite(maximumDeliveredPricePerKg) ||
-      maximumDeliveredPricePerKg <= 0 ||
-      !Number.isFinite(minimumBrix) ||
-      minimumBrix <= 0 ||
-      !Number.isFinite(maximumDefectsPct) ||
-      maximumDefectsPct < 0 ||
-      maximumDefectsPct > 100
-    ) {
-      Alert.alert('Check the order', 'Complete every required field with a valid value.');
+    const { errors: nextErrors, warnings } = validateOrder({
+      businessName: form.businessName,
+      crop: form.crop,
+      variety: form.variety,
+      otherVariety: form.otherVariety,
+      quantityRaw: form.quantity,
+      quantityKg,
+      quantityEstimated: isEstimatedUnit(form.quantityUnit),
+      deliveryLocation: form.deliveryLocation,
+      deliveryDate: form.deliveryDate,
+      maxPriceRaw: form.maximumDeliveredPrice,
+      cropInfo: selectedCrop,
+    });
+
+    if (Object.values(nextErrors).some(Boolean)) {
+      setErrors(nextErrors);
+      Alert.alert('Check the order', 'Fix the highlighted fields to continue.');
       return;
     }
+    setErrors({});
 
+    const orderId = newId('order');
+    if (warnings.length > 0) {
+      Alert.alert(
+        'Please double-check',
+        warnings.map((warning) => `• ${warning}`).join('\n\n'),
+        [
+          { text: 'Go back', style: 'cancel' },
+          { text: 'Find supply anyway', onPress: () => match(orderId, quantityKg) },
+        ],
+      );
+      return;
+    }
+    match(orderId, quantityKg);
+  }
+
+  function match(orderId: string, quantityKg: number) {
     createOrderAndMatch({
-      id: `order-${Date.now()}`,
+      id: orderId,
       businessName: form.businessName.trim(),
       crop: form.crop.trim(),
-      variety: form.variety.trim(),
-      quantityKg,
+      variety: (form.variety === OTHER_VARIETY ? form.otherVariety : form.variety).trim(),
+      quantityKg: Math.round(quantityKg),
       deliveryLocation: form.deliveryLocation.trim(),
       coordinates: coordinatesFor(form.deliveryLocation),
       deliveryDate: form.deliveryDate.trim(),
-      maximumDeliveredPricePerKg,
-      minimumBrix,
-      maximumDefectsPct,
-      firmness: form.firmness,
+      maximumDeliveredPricePerKg: Number(form.maximumDeliveredPrice),
+      minimumCondition: form.minimumCondition,
     });
     router.push('/matches');
   }
@@ -141,95 +172,88 @@ export default function BuyerScreen() {
           <FormField
             label="Business name *"
             placeholder="FreshMart North Queensland"
+            error={errors.businessName}
             value={form.businessName}
             onChangeText={(value) => updateField('businessName', value)}
           />
-          <View style={styles.twoColumns}>
-            <View style={styles.column}>
-              <FormField
-                label="Crop *"
-                placeholder="Mango"
-                value={form.crop}
-                onChangeText={(value) => updateField('crop', value)}
-              />
-            </View>
-            <View style={styles.column}>
-              <FormField
-                label="Variety *"
-                placeholder="Kensington Pride"
-                value={form.variety}
-                onChangeText={(value) => updateField('variety', value)}
-              />
-            </View>
-          </View>
-          <FormField
+          <SelectField
+            label="Crop *"
+            hint="search the catalog"
+            placeholder="Search and pick the crop"
+            searchable
+            error={errors.crop}
+            value={form.crop}
+            options={CROPS.map((crop) => ({ value: crop.name, caption: crop.category }))}
+            onChange={changeCrop}
+          />
+          <SelectField
+            label="Variety *"
+            hint={selectedCrop ? undefined : 'pick the crop first'}
+            placeholder={selectedCrop ? 'Pick the variety' : 'Pick the crop first'}
+            disabled={!selectedCrop}
+            error={errors.variety}
+            value={form.variety}
+            options={[
+              ...(selectedCrop?.varieties.map((variety) => ({ value: variety })) ?? []),
+              { value: OTHER_VARIETY, caption: 'Type a variety not in the list' },
+            ]}
+            onChange={(value) => updateField('variety', value)}
+          />
+          {form.variety === OTHER_VARIETY ? (
+            <FormField
+              label="Type the variety *"
+              placeholder="e.g. Nam Doc Mai"
+              error={errors.otherVariety}
+              value={form.otherVariety}
+              onChangeText={(value) => updateField('otherVariety', value)}
+            />
+          ) : null}
+          <QuantityField
             label="Quantity required *"
-            hint="kilograms"
-            placeholder="10000"
-            keyboardType="numeric"
+            error={errors.quantity}
             value={form.quantity}
-            onChangeText={(value) => updateField('quantity', value)}
+            unit={form.quantityUnit}
+            crop={selectedCrop}
+            onChangeValue={(value) => updateField('quantity', value)}
+            onChangeUnit={(unit) => updateField('quantityUnit', unit)}
           />
           <FormField
             label="Delivery location *"
             hint="distribution centre"
             placeholder="Cairns Distribution Centre, QLD"
+            error={errors.deliveryLocation}
             value={form.deliveryLocation}
             onChangeText={(value) => updateField('deliveryLocation', value)}
           />
-          <FormField
+          <DateField
             label="Required delivery date *"
-            hint="YYYY-MM-DD"
-            placeholder="2026-09-24"
-            autoCapitalize="none"
+            hint="tap to pick"
+            placeholder="Pick a delivery date"
+            error={errors.deliveryDate}
             value={form.deliveryDate}
-            onChangeText={(value) => updateField('deliveryDate', value)}
+            onChange={(value) => updateField('deliveryDate', value)}
           />
           <FormField
             label="Maximum delivered price *"
             hint="AUD per kg"
             placeholder="5.20"
             keyboardType="decimal-pad"
+            error={errors.maxPrice}
             value={form.maximumDeliveredPrice}
             onChangeText={(value) => updateField('maximumDeliveredPrice', value)}
           />
 
-          <Text style={styles.sectionTitle}>Taste and acceptance rules</Text>
-          <View style={styles.qualityNotice}>
-            <Text style={styles.qualityNoticeTitle}>A measurable taste contract</Text>
-            <Text style={styles.qualityNoticeText}>
-              The matching engine will reject the wrong variety, sweetness band, firmness or defect
-              level—even when the fruit looks similar in a photo.
-            </Text>
-          </View>
-          <View style={styles.twoColumns}>
-            <View style={styles.column}>
-              <FormField
-                label="Minimum sweetness *"
-                hint="°Brix"
-                placeholder="14.0"
-                keyboardType="decimal-pad"
-                value={form.minimumBrix}
-                onChangeText={(value) => updateField('minimumBrix', value)}
-              />
-            </View>
-            <View style={styles.column}>
-              <FormField
-                label="Maximum defects *"
-                hint="percent"
-                placeholder="5"
-                keyboardType="decimal-pad"
-                value={form.maximumDefects}
-                onChangeText={(value) => updateField('maximumDefects', value)}
-              />
-            </View>
-          </View>
+          <Text style={styles.sectionTitle}>Quality preference</Text>
           <ChoicePills
-            label="Required firmness *"
-            options={['Soft', 'Medium', 'Firm'] as const}
-            value={form.firmness}
-            onChange={(value) => updateField('firmness', value)}
+            label="Minimum condition"
+            options={['Any', 'Standard', 'Premium'] as const}
+            value={form.minimumCondition}
+            onChange={(value) => updateField('minimumCondition', value)}
           />
+          <Text style={styles.conditionHint}>
+            Condition is seller-provided. You can chat with each matched seller before you approve
+            the order.
+          </Text>
 
           <TouchableOpacity style={styles.submitButton} activeOpacity={0.85} onPress={findSupply}>
             <Text style={styles.submitText}>Find compatible farms</Text>
@@ -258,9 +282,7 @@ const styles = StyleSheet.create({
   sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '900', marginTop: 29, marginBottom: 14 },
   twoColumns: { flexDirection: 'row', gap: 10 },
   column: { flex: 1 },
-  qualityNotice: { backgroundColor: colors.primarySoft, borderRadius: 17, padding: 16, marginBottom: 17 },
-  qualityNoticeTitle: { color: colors.primaryDark, fontSize: 14, fontWeight: '900' },
-  qualityNoticeText: { color: '#506956', fontSize: 12, lineHeight: 18, marginTop: 5 },
+  conditionHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -6, marginBottom: 16 },
   submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 17, marginTop: 14, paddingHorizontal: 18 },
   submitText: { color: colors.surface, fontSize: 16, fontWeight: '900' },
   submitArrow: { position: 'absolute', right: 18, color: colors.lime, fontSize: 29 },

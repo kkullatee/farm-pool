@@ -50,8 +50,8 @@ export default function FarmerResultScreen() {
 
         <View style={styles.metrics}>
           <MetricCard label="available supply" value={formatKg(lastHarvest.quantityKg)} tone="green" />
-          <MetricCard label="measured sweetness" value={`${lastHarvest.brix.toFixed(1)}°`} />
-          <MetricCard label="visible defects" value={`${lastHarvest.defectsPct.toFixed(1)}%`} />
+          <MetricCard label="condition" value={lastHarvest.condition} />
+          <MetricCard label="asking price" value={`$${lastHarvest.minimumPricePerKg.toFixed(2)}`} />
         </View>
 
         <View style={styles.profileCard}>
@@ -62,8 +62,8 @@ export default function FarmerResultScreen() {
             <Text style={styles.profileValue}>{lastHarvest.location}</Text>
           </View>
           <View style={styles.profileRow}>
-            <Text style={styles.profileLabel}>Firmness</Text>
-            <Text style={styles.profileValue}>{lastHarvest.firmness}</Text>
+            <Text style={styles.profileLabel}>Condition</Text>
+            <Text style={styles.profileValue}>{lastHarvest.condition} (seller-provided)</Text>
           </View>
           <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Harvest date</Text>

@@ -14,27 +14,32 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChoicePills } from '@/components/ChoicePills';
+import { DateField } from '@/components/DateField';
 import { FormField } from '@/components/FormField';
 import { PhotoCapture } from '@/components/PhotoCapture';
+import { QuantityField } from '@/components/QuantityField';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { SelectField } from '@/components/SelectField';
 import { VoiceNote } from '@/components/VoiceNote';
 import { useFarmPool } from '@/context/FarmPoolContext';
+import { CROPS, OTHER_VARIETY, QuantityUnit, cropInfo, isEstimatedUnit, toKg } from '@/data/crops';
 import { coordinatesFor } from '@/data/demo';
 import { analyseProduce, transcribeVoice } from '@/lib/ai';
 import { colors } from '@/lib/theme';
-import { Firmness } from '@/lib/types';
+import { ConditionGrade } from '@/lib/types';
+import { FieldErrors, validateHarvest } from '@/lib/validation';
 
 type FormState = {
   farmerName: string;
   crop: string;
   variety: string;
+  otherVariety: string;
   quantity: string;
+  quantityUnit: QuantityUnit;
   location: string;
   harvestDate: string;
   minimumPrice: string;
-  brix: string;
-  defects: string;
-  firmness: Firmness;
+  condition: ConditionGrade;
   notes: string;
 };
 
@@ -42,13 +47,13 @@ const emptyForm: FormState = {
   farmerName: '',
   crop: '',
   variety: '',
+  otherVariety: '',
   quantity: '',
+  quantityUnit: 'kg',
   location: '',
   harvestDate: '',
   minimumPrice: '',
-  brix: '',
-  defects: '',
-  firmness: 'Medium',
+  condition: 'Standard',
   notes: '',
 };
 
@@ -56,55 +61,87 @@ export default function FarmerScreen() {
   const router = useRouter();
   const { registerHarvest } = useFarmPool();
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [voiceUri, setVoiceUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const selectedCrop = cropInfo(form.crop);
+
   function updateField<Key extends keyof FormState>(field: Key, value: FormState[Key]) {
     setForm((current) => ({ ...current, [field]: value }));
+    setErrors((current) => (current[field] ? { ...current, [field]: '' } : current));
+  }
+
+  function changeCrop(crop: string) {
+    // Variety options depend on the crop, so a crop change resets the variety.
+    setForm((current) => ({ ...current, crop, variety: '', otherVariety: '' }));
+    setErrors((current) => ({ ...current, crop: '', variety: '', otherVariety: '' }));
   }
 
   function fillDemo() {
+    setErrors({});
     setForm({
       farmerName: 'Riverbend Family Farm',
       crop: 'Mango',
       variety: 'Kensington Pride',
+      otherVariety: '',
       quantity: '1800',
+      quantityUnit: 'kg',
       location: 'Mareeba, QLD',
       harvestDate: '2026-09-21',
       minimumPrice: '3.05',
-      brix: '14.7',
-      defects: '2.5',
-      firmness: 'Medium',
+      condition: 'Premium',
       notes: 'Uniform medium fruit, hand-picked this morning and pre-cooled on farm.',
     });
   }
 
   async function submitHarvest() {
-    const quantityKg = Number(form.quantity);
-    const minimumPricePerKg = Number(form.minimumPrice);
-    const brix = Number(form.brix);
-    const defectsPct = Number(form.defects);
+    const enteredQuantity = Number(form.quantity);
+    const quantityKg = Number.isFinite(enteredQuantity)
+      ? toKg(enteredQuantity, form.quantityUnit, selectedCrop)
+      : 0;
+    const quantityEstimated = isEstimatedUnit(form.quantityUnit);
 
-    if (
-      !form.farmerName.trim() ||
-      !form.crop.trim() ||
-      !form.variety.trim() ||
-      !form.location.trim() ||
-      !form.harvestDate.trim() ||
-      !Number.isFinite(quantityKg) ||
-      quantityKg <= 0 ||
-      !Number.isFinite(minimumPricePerKg) ||
-      minimumPricePerKg <= 0 ||
-      !Number.isFinite(brix) ||
-      brix <= 0 ||
-      !Number.isFinite(defectsPct) ||
-      defectsPct < 0 ||
-      defectsPct > 100
-    ) {
-      Alert.alert('Check the form', 'Complete every required field with a valid number.');
+    const { errors: nextErrors, warnings } = validateHarvest({
+      farmerName: form.farmerName,
+      crop: form.crop,
+      variety: form.variety,
+      otherVariety: form.otherVariety,
+      quantityRaw: form.quantity,
+      quantityKg,
+      quantityEstimated,
+      location: form.location,
+      harvestDate: form.harvestDate,
+      priceRaw: form.minimumPrice,
+      cropInfo: selectedCrop,
+    });
+
+    if (Object.values(nextErrors).some(Boolean)) {
+      setErrors(nextErrors);
+      Alert.alert('Check the form', 'Fix the highlighted fields to continue.');
       return;
     }
+    setErrors({});
+
+    if (warnings.length > 0) {
+      // Unusual values warn but never auto-reject — the farmer decides.
+      Alert.alert(
+        'Please double-check',
+        `${warnings.map((warning) => `• ${warning}`).join('\n\n')}\n\nYou can add context in the notes field.`,
+        [
+          { text: 'Go back', style: 'cancel' },
+          { text: 'Submit anyway', onPress: () => void register(quantityKg, quantityEstimated) },
+        ],
+      );
+      return;
+    }
+    await register(quantityKg, quantityEstimated);
+  }
+
+  async function register(quantityKg: number, quantityEstimated: boolean) {
+    const isOtherVariety = form.variety === OTHER_VARIETY;
+    const variety = isOtherVariety ? form.otherVariety.trim() : form.variety;
 
     setSubmitting(true);
     try {
@@ -112,10 +149,8 @@ export default function FarmerScreen() {
       const notes = [form.notes.trim(), voiceTranscript].filter(Boolean).join(' ');
       const assessment = await analyseProduce({
         crop: form.crop.trim(),
-        variety: form.variety.trim(),
-        brix,
-        defectsPct,
-        firmness: form.firmness,
+        variety,
+        condition: form.condition,
         notes,
         imageUri,
       });
@@ -123,16 +158,16 @@ export default function FarmerScreen() {
       registerHarvest({
         farmerName: form.farmerName.trim(),
         crop: form.crop.trim(),
-        variety: form.variety.trim(),
-        quantityKg,
+        variety,
+        quantityKg: Math.round(quantityKg),
         location: form.location.trim(),
         coordinates: coordinatesFor(form.location),
         harvestDate: form.harvestDate.trim(),
-        minimumPricePerKg,
-        brix,
-        defectsPct,
-        firmness: form.firmness,
+        minimumPricePerKg: Number(form.minimumPrice),
+        condition: form.condition,
         reliability: 88,
+        needsReview: isOtherVariety,
+        quantityEstimated,
         imageUri,
         voiceUri,
         notes,
@@ -156,7 +191,7 @@ export default function FarmerScreen() {
           <ScreenHeader
             eyebrow="FARMER ONBOARDING"
             title="List a harvest"
-            description="Give buyers a comparable quality profile—not just a photo and a promise."
+            description="Give buyers a clear quality profile, not just a photo and a promise."
           />
 
           <TouchableOpacity style={styles.demoFill} onPress={fillDemo}>
@@ -178,6 +213,7 @@ export default function FarmerScreen() {
           <FormField
             label="Farmer or farm name *"
             placeholder="Riverbend Family Farm"
+            error={errors.farmerName}
             value={form.farmerName}
             onChangeText={(value) => updateField('farmerName', value)}
           />
@@ -185,88 +221,87 @@ export default function FarmerScreen() {
             label="Farm location *"
             hint="town, state"
             placeholder="Mareeba, QLD"
+            error={errors.location}
             value={form.location}
             onChangeText={(value) => updateField('location', value)}
           />
-          <View style={styles.twoColumns}>
-            <View style={styles.column}>
-              <FormField
-                label="Crop *"
-                placeholder="Mango"
-                value={form.crop}
-                onChangeText={(value) => updateField('crop', value)}
-              />
-            </View>
-            <View style={styles.column}>
-              <FormField
-                label="Variety *"
-                placeholder="Kensington Pride"
-                value={form.variety}
-                onChangeText={(value) => updateField('variety', value)}
-              />
-            </View>
-          </View>
-          <FormField
-            label="Available quantity *"
-            hint="kilograms"
-            placeholder="1800"
-            keyboardType="numeric"
-            value={form.quantity}
-            onChangeText={(value) => updateField('quantity', value)}
+          <SelectField
+            label="Crop *"
+            hint="search the catalog"
+            placeholder="Search and pick the crop"
+            searchable
+            error={errors.crop}
+            value={form.crop}
+            options={CROPS.map((crop) => ({ value: crop.name, caption: crop.category }))}
+            onChange={changeCrop}
           />
-          <FormField
+          <SelectField
+            label="Variety *"
+            hint={selectedCrop ? undefined : 'pick the crop first'}
+            placeholder={selectedCrop ? 'Pick the variety' : 'Pick the crop first'}
+            disabled={!selectedCrop}
+            error={errors.variety}
+            value={form.variety}
+            options={[
+              ...(selectedCrop?.varieties.map((variety) => ({ value: variety })) ?? []),
+              { value: OTHER_VARIETY, caption: 'Not listed, needs review' },
+            ]}
+            onChange={(value) => updateField('variety', value)}
+          />
+          {form.variety === OTHER_VARIETY ? (
+            <>
+              <FormField
+                label="Type the variety *"
+                placeholder="e.g. Nam Doc Mai"
+                error={errors.otherVariety}
+                value={form.otherVariety}
+                onChangeText={(value) => updateField('otherVariety', value)}
+              />
+              <View style={styles.reviewNotice}>
+                <Text style={styles.reviewNoticeText}>
+                  New varieties are checked by our team before buyers can rely on them.
+                </Text>
+              </View>
+            </>
+          ) : null}
+          <QuantityField
+            label="Available quantity *"
+            error={errors.quantity}
+            value={form.quantity}
+            unit={form.quantityUnit}
+            crop={selectedCrop}
+            onChangeValue={(value) => updateField('quantity', value)}
+            onChangeUnit={(unit) => updateField('quantityUnit', unit)}
+          />
+          <DateField
             label="Expected harvest date *"
-            hint="YYYY-MM-DD"
-            placeholder="2026-09-21"
-            autoCapitalize="none"
+            hint="tap to pick"
+            placeholder="Pick the harvest date"
+            error={errors.harvestDate}
             value={form.harvestDate}
-            onChangeText={(value) => updateField('harvestDate', value)}
+            onChange={(value) => updateField('harvestDate', value)}
           />
           <FormField
             label="Minimum farm-gate price *"
             hint="AUD per kg"
             placeholder="3.05"
             keyboardType="decimal-pad"
+            error={errors.price}
             value={form.minimumPrice}
             onChangeText={(value) => updateField('minimumPrice', value)}
           />
 
-          <Text style={styles.sectionTitle}>Taste and quality profile</Text>
-          <View style={styles.qualityNotice}>
-            <Text style={styles.qualityNoticeTitle}>Why this matters</Text>
-            <Text style={styles.qualityNoticeText}>
-              Fruit from different places can taste different. FarmPool uses measured Brix,
-              firmness, variety and defects to avoid mixing incompatible lots.
-            </Text>
-          </View>
-          <View style={styles.twoColumns}>
-            <View style={styles.column}>
-              <FormField
-                label="Sugar level *"
-                hint="°Brix"
-                placeholder="14.7"
-                keyboardType="decimal-pad"
-                value={form.brix}
-                onChangeText={(value) => updateField('brix', value)}
-              />
-            </View>
-            <View style={styles.column}>
-              <FormField
-                label="Visible defects *"
-                hint="percent"
-                placeholder="2.5"
-                keyboardType="decimal-pad"
-                value={form.defects}
-                onChangeText={(value) => updateField('defects', value)}
-              />
-            </View>
-          </View>
+          <Text style={styles.sectionTitle}>Condition</Text>
           <ChoicePills
-            label="Firmness *"
-            options={['Soft', 'Medium', 'Firm'] as const}
-            value={form.firmness}
-            onChange={(value) => updateField('firmness', value)}
+            label="Overall condition *"
+            options={['Premium', 'Standard', 'Economy'] as const}
+            value={form.condition}
+            onChange={(value) => updateField('condition', value)}
           />
+          <Text style={styles.conditionHint}>
+            Your honest call on the batch. Buyers see it as seller-provided and can chat with you
+            before confirming.
+          </Text>
           <FormField
             label="Notes"
             hint="optional"
@@ -291,8 +326,8 @@ export default function FarmerScreen() {
             )}
           </TouchableOpacity>
           <Text style={styles.footnote}>
-            The AI screen supports—not replaces—physical sampling, food-safety checks and a final
-            buyer inspection.
+            The AI screen supports physical sampling, food safety checks and a final buyer
+            inspection. It does not replace them.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -314,9 +349,9 @@ const styles = StyleSheet.create({
   voiceWrap: { marginTop: 11 },
   twoColumns: { flexDirection: 'row', gap: 10 },
   column: { flex: 1 },
-  qualityNotice: { backgroundColor: colors.primarySoft, borderRadius: 17, padding: 16, marginBottom: 17 },
-  qualityNoticeTitle: { color: colors.primaryDark, fontSize: 14, fontWeight: '900' },
-  qualityNoticeText: { color: '#47684F', fontSize: 13, lineHeight: 19, marginTop: 5 },
+  reviewNotice: { backgroundColor: colors.amberSoft, borderRadius: 13, padding: 12, marginTop: -6, marginBottom: 16 },
+  reviewNoticeText: { color: '#715112', fontSize: 11, lineHeight: 16 },
+  conditionHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -6, marginBottom: 16 },
   submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 17, marginTop: 14, paddingHorizontal: 17 },
   submitText: { color: colors.surface, fontSize: 16, fontWeight: '900' },
   submitArrow: { position: 'absolute', right: 18, color: colors.lime, fontSize: 29 },

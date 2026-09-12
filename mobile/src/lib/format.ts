@@ -8,6 +8,16 @@ export const formatMoney = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+/** Cents-precision money for itemised breakdowns, so displayed lines sum to the
+ * displayed total exactly (whole-dollar rounding made them look $1 off). */
+export const formatMoneyExact = (value: number) =>
+  new Intl.NumberFormat('en-AU', {
+    style: 'currency',
+    currency: 'AUD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
 export const formatPrice = (value: number) => `$${value.toFixed(2)}/kg`;
 
 export const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
