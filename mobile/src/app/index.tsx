@@ -1,203 +1,184 @@
-import { useRouter } from "expo-router";
+import { useRouter } from 'expo-router';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { useFarmPool } from '@/context/FarmPoolContext';
+import { formatKg } from '@/lib/format';
+import { colors, shadow } from '@/lib/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { harvests, runDemo } = useFarmPool();
+  const availableKg = harvests.reduce((sum, harvest) => sum + harvest.quantityKg, 0);
+
+  function launchDemo() {
+    runDemo();
+    router.push('/matches');
+  }
+
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={styles.container}
-    >
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>AI AGRICULTURE NETWORK</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.nav}>
+          <View style={styles.brandRow}>
+            <View style={styles.logoMark}>
+              <Text style={styles.logoLetters}>FP</Text>
+            </View>
+            <View>
+              <Text style={styles.logo}>FarmPool</Text>
+              <Text style={styles.logoSub}>AI SUPPLY NETWORK</Text>
+            </View>
+          </View>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>DEMO LIVE</Text>
+          </View>
+        </View>
 
-      <Text style={styles.logo}>FarmPool</Text>
+        <View style={styles.hero}>
+          <Text style={styles.eyebrow}>ONE ORDER · MANY LOCAL FARMS</Text>
+          <Text style={styles.heading}>Small farms.{"\n"}Bigger opportunities.</Text>
+          <Text style={styles.description}>
+            FarmPool verifies compatible harvests, pools supply and builds a transparent delivery
+            plan that works for farmers and buyers.
+          </Text>
 
-      <Text style={styles.heading}>
-        Small farms.{"\n"}Bigger opportunities.
-      </Text>
+          <TouchableOpacity style={styles.demoButton} activeOpacity={0.85} onPress={launchDemo}>
+            <View style={styles.demoIcon}>
+              <Text style={styles.demoIconText}>✦</Text>
+            </View>
+            <View style={styles.demoCopy}>
+              <Text style={styles.demoTitle}>Run the 60-second judge demo</Text>
+              <Text style={styles.demoText}>Pool 10,000 kg of mangoes for one buyer</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+        </View>
 
-      <Text style={styles.description}>
-        Combine compatible harvests from nearby farms and fulfil large buyer
-        orders together.
-      </Text>
+        <View style={styles.metricsRow}>
+          <View style={styles.metric}>
+            <Text style={styles.metricValue}>{harvests.length}</Text>
+            <Text style={styles.metricLabel}>farms ready</Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metric}>
+            <Text style={styles.metricValue}>{formatKg(availableKg)}</Text>
+            <Text style={styles.metricLabel}>listed supply</Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metric}>
+            <Text style={styles.metricValue}>3 signals</Text>
+            <Text style={styles.metricLabel}>quality matched</Text>
+          </View>
+        </View>
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>How FarmPool works</Text>
+        <Text style={styles.question}>Choose your side of the market</Text>
 
-        <Text style={styles.step}>1. Farmers register their harvest</Text>
-        <Text style={styles.step}>2. AI checks quality and location</Text>
-        <Text style={styles.step}>3. Compatible farms are grouped</Text>
-        <Text style={styles.step}>4. Transport costs are calculated</Text>
-      </View>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          activeOpacity={0.85}
+          onPress={() => router.push('/farmer')}>
+          <View style={styles.roleIconLight}>
+            <Text style={styles.roleIconTextLight}>F</Text>
+          </View>
+          <View style={styles.roleCopy}>
+            <Text style={styles.primaryTitle}>I’m a farmer</Text>
+            <Text style={styles.primaryText}>List a harvest with photo, voice and quality data</Text>
+          </View>
+          <Text style={styles.primaryArrow}>›</Text>
+        </TouchableOpacity>
 
-      <Text style={styles.question}>How would you like to continue?</Text>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          activeOpacity={0.85}
+          onPress={() => router.push('/buyer')}>
+          <View style={styles.roleIconDark}>
+            <Text style={styles.roleIconTextDark}>B</Text>
+          </View>
+          <View style={styles.roleCopy}>
+            <Text style={styles.secondaryTitle}>I’m a buyer</Text>
+            <Text style={styles.secondaryText}>Create a large order and see a pooled supply plan</Text>
+          </View>
+          <Text style={styles.secondaryArrow}>›</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.primaryButton}
-        activeOpacity={0.8}
-        onPress={() => router.push("/farmer")}
->
-        <Text style={styles.primaryButtonTitle}>I’m a farmer</Text>
-        <Text style={styles.primaryButtonText}>
-          Register produce and join a supply group
+        <View style={styles.howCard}>
+          <Text style={styles.howEyebrow}>THE AI COORDINATOR</Text>
+          <Text style={styles.howTitle}>What becomes possible</Text>
+          {[
+            ['01', 'Screens each lot', 'Combines photos with reported Brix, defects and firmness.'],
+            ['02', 'Protects taste consistency', 'Only groups the same crop, variety and quality profile.'],
+            ['03', 'Builds the delivery', 'Selects farms, allocates quantity and prices a shared route.'],
+            ['04', 'Explains every decision', 'Shows accepted and rejected farms with clear reasons.'],
+          ].map(([number, title, copy]) => (
+            <View key={number} style={styles.howRow}>
+              <Text style={styles.howNumber}>{number}</Text>
+              <View style={styles.howCopy}>
+                <Text style={styles.howRowTitle}>{title}</Text>
+                <Text style={styles.howRowText}>{copy}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.disclaimer}>
+          Hackathon prototype · Demo farms and prices are fictional · Physical testing remains part
+          of final quality assurance.
         </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        activeOpacity={0.8}
-        onPress={() => router.push("/buyer")}
-      >
-        <Text style={styles.secondaryButtonTitle}>I’m a buyer</Text>
-        <Text style={styles.secondaryButtonText}>
-          Find reliable, quality-matched produce
-        </Text>
-      </TouchableOpacity>
-
-      <View style={styles.features}>
-        <View style={styles.feature}>
-          <Text style={styles.featureNumber}>01</Text>
-          <Text style={styles.featureText}>Quality matched</Text>
-        </View>
-
-        <View style={styles.feature}>
-          <Text style={styles.featureNumber}>02</Text>
-          <Text style={styles.featureText}>Transport optimised</Text>
-        </View>
-
-        <View style={styles.feature}>
-          <Text style={styles.featureNumber}>03</Text>
-          <Text style={styles.featureText}>Fully traceable</Text>
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: "#F4F7F1",
-  },
-  container: {
-    paddingTop: 70,
-    paddingHorizontal: 24,
-    paddingBottom: 50,
-  },
-  badge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#DDEBD6",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  badgeText: {
-    color: "#35613D",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  logo: {
-    color: "#1F6B3A",
-    fontSize: 22,
-    fontWeight: "800",
-    marginTop: 26,
-  },
-  heading: {
-    color: "#17231A",
-    fontSize: 42,
-    fontWeight: "800",
-    lineHeight: 48,
-    marginTop: 12,
-  },
-  description: {
-    color: "#59645B",
-    fontSize: 17,
-    lineHeight: 25,
-    marginTop: 16,
-  },
-  summaryCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: 20,
-    marginTop: 28,
-  },
-  summaryTitle: {
-    color: "#17231A",
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 14,
-  },
-  step: {
-    color: "#59645B",
-    fontSize: 15,
-    marginVertical: 5,
-  },
-  question: {
-    color: "#17231A",
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 30,
-    marginBottom: 14,
-  },
-  primaryButton: {
-    backgroundColor: "#1F6B3A",
-    borderRadius: 18,
-    padding: 20,
-  },
-  primaryButtonTitle: {
-    color: "#FFFFFF",
-    fontSize: 19,
-    fontWeight: "700",
-  },
-  primaryButtonText: {
-    color: "#DCEADF",
-    fontSize: 14,
-    marginTop: 5,
-  },
-  secondaryButton: {
-    backgroundColor: "#E7EFE3",
-    borderColor: "#B7CDB3",
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 20,
-    marginTop: 12,
-  },
-  secondaryButtonTitle: {
-    color: "#245A35",
-    fontSize: 19,
-    fontWeight: "700",
-  },
-  secondaryButtonText: {
-    color: "#58715E",
-    fontSize: 14,
-    marginTop: 5,
-  },
-  features: {
-    marginTop: 28,
-    gap: 12,
-  },
-  feature: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  featureNumber: {
-    color: "#78A67C",
-    fontSize: 13,
-    fontWeight: "800",
-    width: 35,
-  },
-  featureText: {
-    color: "#4C5950",
-    fontSize: 14,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  container: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 48 },
+  nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brandRow: { flexDirection: 'row', alignItems: 'center' },
+  logoMark: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: 13, marginRight: 10 },
+  logoLetters: { color: colors.lime, fontSize: 13, fontWeight: '900', letterSpacing: -0.5 },
+  logo: { color: colors.ink, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  logoSub: { color: colors.primary, fontSize: 8, fontWeight: '800', letterSpacing: 1.1 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 8 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary, marginRight: 6 },
+  liveText: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  hero: { marginTop: 42 },
+  eyebrow: { color: colors.primary, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
+  heading: { color: colors.ink, fontSize: 43, fontWeight: '900', lineHeight: 47, letterSpacing: -1.7, marginTop: 10 },
+  description: { color: colors.muted, fontSize: 16, lineHeight: 24, marginTop: 16 },
+  demoButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.ink, borderRadius: 21, padding: 15, marginTop: 24, ...shadow },
+  demoIcon: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.lime, borderRadius: 13 },
+  demoIconText: { color: colors.primaryDark, fontSize: 22, fontWeight: '900' },
+  demoCopy: { flex: 1, paddingHorizontal: 12 },
+  demoTitle: { color: colors.surface, fontSize: 14, fontWeight: '800' },
+  demoText: { color: '#BFC9C0', fontSize: 11, lineHeight: 15, marginTop: 3 },
+  arrow: { color: colors.lime, fontSize: 30, fontWeight: '500' },
+  metricsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 19, paddingVertical: 18, paddingHorizontal: 8, marginTop: 17 },
+  metric: { flex: 1, alignItems: 'center' },
+  metricValue: { color: colors.ink, fontSize: 15, fontWeight: '900' },
+  metricLabel: { color: colors.faint, fontSize: 9, marginTop: 4 },
+  metricDivider: { width: 1, height: 30, backgroundColor: colors.border },
+  question: { color: colors.ink, fontSize: 19, fontWeight: '900', marginTop: 33, marginBottom: 13 },
+  primaryButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, borderRadius: 19, padding: 16 },
+  secondaryButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceAlt, borderColor: colors.line, borderWidth: 1, borderRadius: 19, padding: 16, marginTop: 11 },
+  roleIconLight: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.14)' },
+  roleIconDark: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.surface },
+  roleIconTextLight: { color: colors.lime, fontSize: 16, fontWeight: '900' },
+  roleIconTextDark: { color: colors.primary, fontSize: 16, fontWeight: '900' },
+  roleCopy: { flex: 1, paddingHorizontal: 13 },
+  primaryTitle: { color: colors.surface, fontSize: 17, fontWeight: '900' },
+  primaryText: { color: '#DCE8DE', fontSize: 11, lineHeight: 15, marginTop: 3 },
+  secondaryTitle: { color: colors.primaryDark, fontSize: 17, fontWeight: '900' },
+  secondaryText: { color: colors.muted, fontSize: 11, lineHeight: 15, marginTop: 3 },
+  primaryArrow: { color: colors.lime, fontSize: 28 },
+  secondaryArrow: { color: colors.primary, fontSize: 28 },
+  howCard: { backgroundColor: colors.surface, borderRadius: 23, padding: 19, marginTop: 31 },
+  howEyebrow: { color: colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  howTitle: { color: colors.ink, fontSize: 23, fontWeight: '900', marginTop: 7, marginBottom: 5 },
+  howRow: { flexDirection: 'row', paddingVertical: 14, borderBottomColor: colors.border, borderBottomWidth: 1 },
+  howNumber: { color: colors.primary, fontSize: 12, fontWeight: '900', width: 34, paddingTop: 2 },
+  howCopy: { flex: 1 },
+  howRowTitle: { color: colors.ink, fontSize: 14, fontWeight: '800' },
+  howRowText: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  disclaimer: { color: colors.faint, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 22 },
 });
