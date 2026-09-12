@@ -5,12 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MetricCard } from '@/components/MetricCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useFarmPool } from '@/context/FarmPoolContext';
-import { formatKg, formatMoney, formatPrice } from '@/lib/format';
+import { formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
 import { colors } from '@/lib/theme';
+import { ConditionGrade, RankedCombination } from '@/lib/types';
+
+const conditionRank: Record<ConditionGrade, number> = { Economy: 1, Standard: 2, Premium: 3 };
 
 export default function MatchesScreen() {
   const router = useRouter();
-  const { plan, runDemo, approveDeal } = useFarmPool();
+  const { plan, runDemo, approveDeal, chooseCombination } = useFarmPool();
 
   function createDemoPlan() {
     runDemo();
@@ -72,10 +75,82 @@ export default function MatchesScreen() {
         </View>
 
         <View style={styles.metrics}>
-          <MetricCard label="pooled Brix" value={plan.weightedBrix.toFixed(1)} tone="green" />
-          <MetricCard label="pooled defects" value={`${plan.weightedDefects.toFixed(1)}%`} />
+          <MetricCard
+            label="pool condition"
+            value={
+              plan.selected.length
+                ? plan.selected.reduce(
+                    (lowest, lot) =>
+                      conditionRank[lot.harvest.condition] < conditionRank[lowest]
+                        ? lot.harvest.condition
+                        : lowest,
+                    'Premium' as ConditionGrade,
+                  )
+                : 'n/a'
+            }
+            tone="green"
+          />
+          <MetricCard
+            label="avg reliability"
+            value={
+              plan.selected.length
+                ? `${Math.round(
+                    plan.selected.reduce((sum, lot) => sum + lot.harvest.reliability, 0) /
+                      plan.selected.length,
+                  )}%`
+                : 'n/a'
+            }
+          />
           <MetricCard label="route distance" value={`${plan.cost.routeKm} km`} tone="amber" />
         </View>
+
+        {plan.rankedCombinations.length > 0 ? (
+          <>
+            <View style={styles.sectionHeadingRow}>
+              <View>
+                <Text style={styles.sectionEyebrow}>HYBRID MATCHING</Text>
+                <Text style={styles.sectionTitle}>Top ranked pools</Text>
+              </View>
+              <Text style={styles.sectionCount}>top {plan.rankedCombinations.length}</Text>
+            </View>
+
+            <View style={styles.pipelineCard}>
+              <View style={styles.pipelineBadges}>
+                <Text style={styles.rulesBadge}>RULES · FEASIBILITY</Text>
+                <Text style={styles.pipelineArrow}>›</Text>
+                <Text style={styles.mlBadge}>ML · RANKING</Text>
+              </View>
+              <Text style={styles.pipelineText}>
+                Hard rules removed {plan.rejected.length} of{' '}
+                {plan.rejected.length + plan.selected.length + plan.eligibleNotNeeded.length} farms
+                (wrong variety, quality, timing or radius), then a trained model ranked every
+                feasible pool by predicted fulfilment. The model never overrides a rule.
+              </Text>
+            </View>
+
+            <Text style={styles.tapHint}>
+              FarmPool recommends #1. Tap any pool to use it instead.
+            </Text>
+
+            {plan.rankedCombinations.map((combo) => (
+              <CombinationCard
+                key={combo.id}
+                combo={combo}
+                selected={combo.id === plan.selectedCombinationId}
+                onSelect={() => chooseCombination(combo.id)}
+              />
+            ))}
+
+            {plan.modelInfo ? (
+              <Text style={styles.modelNote}>
+                Ranked by {plan.modelInfo.modelType.replace('_', ' ')} ({plan.modelInfo.library},
+                AUC {plan.modelInfo.auc.toFixed(2)}) trained on {plan.modelInfo.trainedRows}{' '}
+                clearly-labelled synthetic fulfilment records. Same inputs always give the same
+                ranking.
+              </Text>
+            ) : null}
+          </>
+        ) : null}
 
         <View style={styles.sectionHeadingRow}>
           <View>
@@ -101,23 +176,32 @@ export default function MatchesScreen() {
             </View>
             <View style={styles.farmStats}>
               <View style={styles.farmStat}>
-                <Text style={styles.farmStatLabel}>ALLOCATED</Text>
+                <Text style={styles.farmStatLabel} numberOfLines={1}>ALLOCATED</Text>
                 <Text style={styles.farmStatValue}>{formatKg(lot.allocatedKg)}</Text>
               </View>
               <View style={styles.farmStat}>
-                <Text style={styles.farmStatLabel}>BRIX</Text>
-                <Text style={styles.farmStatValue}>{lot.harvest.brix.toFixed(1)}</Text>
+                <Text style={styles.farmStatLabel} numberOfLines={1}>CONDITION</Text>
+                <Text style={styles.farmStatValue}>{lot.harvest.condition}</Text>
               </View>
               <View style={styles.farmStat}>
-                <Text style={styles.farmStatLabel}>DEFECTS</Text>
-                <Text style={styles.farmStatValue}>{lot.harvest.defectsPct.toFixed(1)}%</Text>
-              </View>
-              <View style={styles.farmStat}>
-                <Text style={styles.farmStatLabel}>PRICE</Text>
+                <Text style={styles.farmStatLabel} numberOfLines={1}>PRICE</Text>
                 <Text style={styles.farmStatValue}>${lot.harvest.minimumPricePerKg.toFixed(2)}</Text>
               </View>
+              <View style={styles.farmStat}>
+                <Text style={styles.farmStatLabel} numberOfLines={1}>HARVEST</Text>
+                <Text style={styles.farmStatValue}>{lot.harvest.harvestDate.slice(5)}</Text>
+              </View>
             </View>
-            <Text style={styles.farmFit}>✓ Same variety · {lot.harvest.firmness.toLowerCase()} firmness · ready by {lot.harvest.harvestDate}</Text>
+            <Text style={styles.farmFit}>
+              ✓ Same variety · {lot.harvest.condition.toLowerCase()} condition (seller-provided) ·
+              ready by {lot.harvest.harvestDate}
+            </Text>
+            <TouchableOpacity
+              style={styles.chatButton}
+              onPress={() => router.push({ pathname: '/chat', params: { harvestId: lot.harvest.id } })}>
+              <Text style={styles.chatButtonText}>Chat with seller</Text>
+              <Text style={styles.chatButtonArrow}>›</Text>
+            </TouchableOpacity>
           </View>
         ))}
 
@@ -154,17 +238,17 @@ export default function MatchesScreen() {
         <View style={styles.costCard}>
           <Text style={styles.sectionEyebrow}>TRANSPARENT COST MODEL</Text>
           <Text style={styles.cardTitle}>Delivered price explained</Text>
-          <CostRow label="Produce paid to farmers" value={formatMoney(plan.cost.produce)} />
-          <CostRow label="Truck dispatch" value={formatMoney(plan.cost.dispatch)} />
-          <CostRow label={`${plan.cost.routeKm} km shared route`} value={formatMoney(plan.cost.distance)} />
-          <CostRow label="Cold chain" value={formatMoney(plan.cost.coldChain)} />
-          <CostRow label="Handling and consolidation" value={formatMoney(plan.cost.handling)} />
-          <CostRow label={`${plan.selected.length} physical quality checks`} value={formatMoney(plan.cost.qualityTesting)} />
-          <CostRow label="FarmPool coordination (2.5%)" value={formatMoney(plan.cost.platform)} />
+          <CostRow label="Produce paid to farmers" value={formatMoneyExact(plan.cost.produce)} />
+          <CostRow label="Truck dispatch" value={formatMoneyExact(plan.cost.dispatch)} />
+          <CostRow label={`${plan.cost.routeKm} km shared route`} value={formatMoneyExact(plan.cost.distance)} />
+          <CostRow label="Cold chain" value={formatMoneyExact(plan.cost.coldChain)} />
+          <CostRow label="Handling and consolidation" value={formatMoneyExact(plan.cost.handling)} />
+          <CostRow label={`${plan.selected.length} physical quality checks`} value={formatMoneyExact(plan.cost.qualityTesting)} />
+          <CostRow label="FarmPool coordination (2.5%)" value={formatMoneyExact(plan.cost.platform)} />
           <View style={styles.totalRow}>
             <View>
               <Text style={styles.totalLabel}>TOTAL DELIVERED</Text>
-              <Text style={styles.total}>{formatMoney(plan.cost.total)}</Text>
+              <Text style={styles.total}>{formatMoneyExact(plan.cost.total)}</Text>
             </View>
             <View style={styles.perKgBox}>
               <Text style={styles.perKg}>{formatPrice(plan.cost.deliveredPerKg)}</Text>
@@ -201,8 +285,8 @@ export default function MatchesScreen() {
         <View style={styles.assuranceCard}>
           <Text style={styles.assuranceTitle}>Final checkpoint before collection</Text>
           <Text style={styles.assuranceText}>
-            A pooled sample is physically checked for Brix, firmness and food-safety records. Any
-            failed lot is replaced from the compatible reserve—never silently blended in.
+            A pooled sample is physically checked against the order before dispatch. Any failed
+            lot is replaced from the compatible reserve, never silently blended in.
           </Text>
         </View>
 
@@ -227,6 +311,83 @@ function CostRow({ label, value }: { label: string; value: string }) {
       <Text style={styles.costLabel}>{label}</Text>
       <Text style={styles.costValue}>{value}</Text>
     </View>
+  );
+}
+
+function ScoreBar({ label, value, ml }: { label: string; value: number; ml?: boolean }) {
+  return (
+    <View style={styles.scoreBarRow}>
+      <Text style={styles.scoreBarLabel}>{label}</Text>
+      <View style={styles.scoreBarTrack}>
+        <View
+          style={[
+            styles.scoreBarFill,
+            ml && styles.scoreBarFillMl,
+            { width: `${Math.round(value * 100)}%` },
+          ]}
+        />
+      </View>
+      <Text style={styles.scoreBarValue}>{Math.round(value * 100)}%</Text>
+      <Text style={[styles.scoreBarTag, ml && styles.scoreBarTagMl]}>{ml ? 'ML' : 'RULES'}</Text>
+    </View>
+  );
+}
+
+function CombinationCard({
+  combo,
+  selected,
+  onSelect,
+}: {
+  combo: RankedCombination;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onSelect}
+      style={[styles.comboCard, selected && styles.comboCardSelected]}>
+      <View style={styles.comboTop}>
+        <View style={[styles.comboRank, selected && styles.comboRankSelected]}>
+          <Text style={[styles.comboRankText, selected && styles.comboRankTextSelected]}>
+            #{combo.rank}
+          </Text>
+        </View>
+        <View style={styles.comboNameWrap}>
+          <Text style={styles.comboFarms}>
+            {combo.lots.map((lot) => lot.harvest.farmerName).join(' + ')}
+          </Text>
+          <Text style={styles.comboMeta}>
+            {formatKg(combo.fulfilledKg)} · {formatPrice(combo.cost.deliveredPerKg)} delivered
+            {combo.rank === 1 ? ' · AI pick' : ''}
+            {combo.withinBudget ? '' : ' · over price target'}
+          </Text>
+        </View>
+        <View style={styles.comboScoreWrap}>
+          <Text style={styles.comboScore}>{Math.round(combo.finalScore * 100)}</Text>
+          <Text style={[styles.comboScoreLabel, selected && styles.comboScoreLabelSelected]}>
+            {selected ? 'SELECTED' : 'TAP TO USE'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.comboBars}>
+        <ScoreBar label="Fulfilment" value={combo.fulfilmentProbability} ml />
+        <ScoreBar label="Logistics" value={combo.logisticsScore} />
+        <ScoreBar label="Buyer fit" value={combo.buyerFitScore} />
+      </View>
+
+      <View style={styles.factorRow}>
+        {combo.topFactors.map((factor) => (
+          <Text
+            key={factor.feature}
+            style={[styles.factorChip, factor.direction === 'negative' && styles.factorChipDown]}>
+            {factor.direction === 'positive' ? '↑' : '↓'} {factor.label}
+          </Text>
+        ))}
+      </View>
+      <Text style={styles.comboWhy}>{combo.explanation}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -257,6 +418,41 @@ const styles = StyleSheet.create({
   sectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
   sectionTitle: { color: colors.ink, fontSize: 23, fontWeight: '900', marginTop: 5 },
   sectionCount: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  pipelineCard: { backgroundColor: colors.ink, borderRadius: 19, padding: 15, marginBottom: 12 },
+  pipelineBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rulesBadge: { color: colors.lime, backgroundColor: 'rgba(255,255,255,0.12)', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
+  mlBadge: { color: colors.ink, backgroundColor: colors.lime, fontSize: 8, fontWeight: '900', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
+  pipelineArrow: { color: '#8FA394', fontSize: 14, fontWeight: '900' },
+  pipelineText: { color: '#C6D2C8', fontSize: 11, lineHeight: 16, marginTop: 10 },
+  comboCard: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginBottom: 10, borderWidth: 2, borderColor: 'transparent' },
+  comboCardSelected: { borderColor: colors.primary },
+  comboTop: { flexDirection: 'row', alignItems: 'center' },
+  comboRank: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  comboRankSelected: { backgroundColor: colors.primary },
+  comboRankText: { color: colors.muted, fontSize: 12, fontWeight: '900' },
+  comboRankTextSelected: { color: colors.lime },
+  comboNameWrap: { flex: 1, paddingHorizontal: 10 },
+  comboFarms: { color: colors.ink, fontSize: 13, fontWeight: '900', lineHeight: 17 },
+  comboMeta: { color: colors.faint, fontSize: 10, marginTop: 3 },
+  comboScoreWrap: { alignItems: 'center' },
+  comboScore: { color: colors.primary, fontSize: 22, fontWeight: '900' },
+  comboScoreLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.5, marginTop: 1 },
+  comboScoreLabelSelected: { color: colors.primary },
+  tapHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginBottom: 10, paddingHorizontal: 4 },
+  comboBars: { backgroundColor: colors.background, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, marginTop: 12, gap: 7 },
+  scoreBarRow: { flexDirection: 'row', alignItems: 'center' },
+  scoreBarLabel: { width: 62, color: colors.muted, fontSize: 9, fontWeight: '800' },
+  scoreBarTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden', marginHorizontal: 7 },
+  scoreBarFill: { height: '100%', borderRadius: 3, backgroundColor: colors.amber },
+  scoreBarFillMl: { backgroundColor: colors.primary },
+  scoreBarValue: { width: 32, color: colors.ink, fontSize: 10, fontWeight: '900', textAlign: 'right' },
+  scoreBarTag: { width: 38, color: colors.amber, fontSize: 7, fontWeight: '900', textAlign: 'right', letterSpacing: 0.4 },
+  scoreBarTagMl: { color: colors.primary },
+  factorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 11 },
+  factorChip: { color: colors.primaryDark, backgroundColor: colors.primarySoft, fontSize: 9, fontWeight: '800', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, overflow: 'hidden' },
+  factorChipDown: { color: '#715112', backgroundColor: colors.amberSoft },
+  comboWhy: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 9 },
+  modelNote: { color: colors.faint, fontSize: 9, lineHeight: 14, marginTop: 4, marginBottom: 6, paddingHorizontal: 4 },
   farmCard: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginBottom: 10 },
   farmTop: { flexDirection: 'row', alignItems: 'center' },
   farmNumber: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
@@ -267,10 +463,13 @@ const styles = StyleSheet.create({
   scorePill: { backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
   scoreText: { color: colors.primaryDark, fontSize: 10, fontWeight: '900' },
   farmStats: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 14, paddingVertical: 11, marginTop: 13 },
-  farmStat: { flex: 1, alignItems: 'center' },
-  farmStatLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.5 },
+  farmStat: { flex: 1, alignItems: 'center', paddingHorizontal: 3 },
+  farmStatLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
   farmStatValue: { color: colors.ink, fontSize: 12, fontWeight: '900', marginTop: 3 },
   farmFit: { color: colors.primary, fontSize: 10, lineHeight: 15, marginTop: 11, fontWeight: '700' },
+  chatButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, borderRadius: 13, paddingVertical: 11, marginTop: 12 },
+  chatButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: '900' },
+  chatButtonArrow: { color: colors.primaryDark, fontSize: 16, fontWeight: '900', marginLeft: 6, marginTop: -1 },
   routeCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 20 },
   cardTitle: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: 5 },
   truckPill: { backgroundColor: colors.amberSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },

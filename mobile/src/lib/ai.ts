@@ -1,11 +1,9 @@
-import { Firmness, QualityAssessment } from './types';
+import { ConditionGrade, QualityAssessment } from './types';
 
 type AnalysisInput = {
   crop: string;
   variety: string;
-  brix: number;
-  defectsPct: number;
-  firmness: Firmness;
+  condition: ConditionGrade;
   notes: string;
   imageUri: string | null;
 };
@@ -13,31 +11,26 @@ type AnalysisInput = {
 const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
 
 function localAssessment(input: AnalysisInput): QualityAssessment {
-  const visualScore = Math.max(
-    45,
-    Math.min(97, Math.round(86 + (input.brix - 14) * 3 - input.defectsPct * 1.4)),
-  );
-  const grade =
-    input.brix >= 14.5 && input.defectsPct <= 3
-      ? 'Premium'
-      : input.brix >= 12 && input.defectsPct <= 7
-        ? 'Standard'
-        : 'Processing';
+  const byCondition: Record<ConditionGrade, { grade: QualityAssessment['grade']; score: number }> =
+    {
+      Premium: { grade: 'Premium', score: 91 },
+      Standard: { grade: 'Standard', score: 82 },
+      Economy: { grade: 'Processing', score: 68 },
+    };
+  const { grade, score } = byCondition[input.condition];
 
   const observations = [
     input.imageUri ? 'Produce image captured for visual review' : 'No image supplied; confidence reduced',
-    `${input.brix.toFixed(1)} Brix entered by the farmer`,
-    `${input.defectsPct.toFixed(1)}% visible defects reported`,
-    `${input.firmness} firmness profile`,
+    `Condition reported by the seller: ${input.condition}`,
   ];
 
   return {
     grade,
-    visualScore,
+    visualScore: score,
     confidence: input.imageUri ? 0.84 : 0.64,
     observations,
     warning:
-      'This is a preliminary screen. Taste and safety require a physical sample and verified measurements.',
+      'This is a preliminary screen based on seller-provided details. Buyers can ask the seller for more before confirming.',
     source: 'demo',
   };
 }
@@ -49,9 +42,7 @@ export async function analyseProduce(input: AnalysisInput): Promise<QualityAsses
     const body = new FormData();
     body.append('crop', input.crop);
     body.append('variety', input.variety);
-    body.append('brix', String(input.brix));
-    body.append('defects_pct', String(input.defectsPct));
-    body.append('firmness', input.firmness);
+    body.append('condition', input.condition);
     body.append('notes', input.notes);
     if (input.imageUri) {
       body.append(

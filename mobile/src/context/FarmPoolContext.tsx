@@ -2,13 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PropsWithChildren, createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { demoHarvests, demoOrder } from '@/data/demo';
+import { newId } from '@/lib/ids';
 import { buildMatchPlan } from '@/lib/matching';
-import { BuyerOrder, Harvest, MatchPlan } from '@/lib/types';
+import { BuyerOrder, ChatMessage, Harvest, MatchPlan } from '@/lib/types';
 
 type StoredState = {
   customHarvests: Harvest[];
   order: BuyerOrder | null;
   dealApproved: boolean;
+  chosenCombinationId?: string | null;
+  chats?: Record<string, ChatMessage[]>;
 };
 
 type ContextValue = {
@@ -18,14 +21,18 @@ type ContextValue = {
   plan: MatchPlan | null;
   dealApproved: boolean;
   hydrated: boolean;
+  chats: Record<string, ChatMessage[]>;
   registerHarvest: (harvest: Omit<Harvest, 'id'>) => Harvest;
   createOrderAndMatch: (order: BuyerOrder) => MatchPlan;
+  chooseCombination: (combinationId: string) => void;
+  sendChatMessage: (harvestId: string, text: string) => void;
   runDemo: () => MatchPlan;
   approveDeal: () => void;
   resetDemo: () => void;
 };
 
-const STORAGE_KEY = 'farmpool-state-v1';
+// v4: simple condition grade replaced detailed measurements; added seller chat.
+const STORAGE_KEY = 'farmpool-state-v4';
 const FarmPoolContext = createContext<ContextValue | null>(null);
 
 export function FarmPoolProvider({ children }: PropsWithChildren) {
@@ -33,6 +40,8 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
   const [lastHarvest, setLastHarvest] = useState<Harvest | null>(null);
   const [order, setOrder] = useState<BuyerOrder | null>(null);
   const [plan, setPlan] = useState<MatchPlan | null>(null);
+  const [chosenCombinationId, setChosenCombinationId] = useState<string | null>(null);
+  const [chats, setChats] = useState<Record<string, ChatMessage[]>>({});
   const [dealApproved, setDealApproved] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const harvests = useMemo(() => [...demoHarvests, ...customHarvests], [customHarvests]);
@@ -46,8 +55,16 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
           setCustomHarvests(stored.customHarvests ?? []);
           setOrder(stored.order ?? null);
           setDealApproved(Boolean(stored.dealApproved));
+          setChosenCombinationId(stored.chosenCombinationId ?? null);
+          setChats(stored.chats ?? {});
           if (stored.order) {
-            setPlan(buildMatchPlan(stored.order, [...demoHarvests, ...(stored.customHarvests ?? [])]));
+            setPlan(
+              buildMatchPlan(
+                stored.order,
+                [...demoHarvests, ...(stored.customHarvests ?? [])],
+                stored.chosenCombinationId,
+              ),
+            );
           }
         }
       } finally {
@@ -58,9 +75,9 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!hydrated) return;
-    const stored: StoredState = { customHarvests, order, dealApproved };
+    const stored: StoredState = { customHarvests, order, dealApproved, chosenCombinationId, chats };
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-  }, [customHarvests, order, dealApproved, hydrated]);
+  }, [customHarvests, order, dealApproved, chosenCombinationId, chats, hydrated]);
 
   function registerHarvest(input: Omit<Harvest, 'id'>) {
     const harvest: Harvest = {
@@ -76,8 +93,32 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
     const nextPlan = buildMatchPlan(nextOrder, harvests);
     setOrder(nextOrder);
     setPlan(nextPlan);
+    setChosenCombinationId(null);
     setDealApproved(false);
     return nextPlan;
+  }
+
+  function sendChatMessage(harvestId: string, text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const message: ChatMessage = {
+      id: newId('msg'),
+      harvestId,
+      sender: 'buyer',
+      text: trimmed,
+      sentAt: new Date().toISOString(),
+    };
+    setChats((current) => ({
+      ...current,
+      [harvestId]: [...(current[harvestId] ?? []), message],
+    }));
+  }
+
+  function chooseCombination(combinationId: string) {
+    if (!order) return;
+    setChosenCombinationId(combinationId);
+    setPlan(buildMatchPlan(order, harvests, combinationId));
+    setDealApproved(false);
   }
 
   function runDemo() {
@@ -93,6 +134,8 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
     setLastHarvest(null);
     setOrder(null);
     setPlan(null);
+    setChosenCombinationId(null);
+    setChats({});
     setDealApproved(false);
     void AsyncStorage.removeItem(STORAGE_KEY);
   }
@@ -106,8 +149,11 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
         plan,
         dealApproved,
         hydrated,
+        chats,
         registerHarvest,
         createOrderAndMatch,
+        chooseCombination,
+        sendChatMessage,
         runDemo,
         approveDeal,
         resetDemo,

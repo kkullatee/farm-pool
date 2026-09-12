@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFarmPool } from '@/context/FarmPoolContext';
-import { formatKg, formatMoney, formatPrice } from '@/lib/format';
+import { formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
 import { colors } from '@/lib/theme';
 
 export default function DealScreen() {
@@ -80,7 +80,7 @@ export default function DealScreen() {
               <Text style={styles.payoutDetail}>{formatKg(lot.allocatedKg)} · {lot.harvest.location}</Text>
             </View>
             <View style={styles.payoutValueWrap}>
-              <Text style={styles.payoutValue}>{formatMoney(lot.allocatedKg * lot.harvest.minimumPricePerKg)}</Text>
+              <Text style={styles.payoutValue}>{formatMoneyExact(lot.allocatedKg * lot.harvest.minimumPricePerKg)}</Text>
               <Text style={styles.payoutLabel}>farm payout</Text>
             </View>
           </View>
@@ -103,7 +103,7 @@ export default function DealScreen() {
           <TimelineStep
             number="3"
             title="Verify the pooled sample"
-            copy={`Confirm at least ${plan.order.minimumBrix.toFixed(1)} Brix, ${plan.order.firmness.toLowerCase()} firmness and no more than ${plan.order.maximumDefectsPct.toFixed(1)}% defects.`}
+            copy={`Check the pooled sample matches the order${plan.order.minimumCondition === 'Any' ? '' : ` and is ${plan.order.minimumCondition.toLowerCase()} condition or better`}.`}
             state="GATE"
           />
           <TimelineStep

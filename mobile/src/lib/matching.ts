@@ -1,4 +1,27 @@
-import { BuyerOrder, CostBreakdown, FarmEvaluation, Harvest, MatchPlan, SelectedLot } from './types';
+import { allocate, generateCombinations } from './candidates';
+import { rankCombination, rankingModelInfo } from './ranking';
+import {
+  BuyerOrder,
+  CostBreakdown,
+  FarmEvaluation,
+  Harvest,
+  MatchPlan,
+  RankedCombination,
+  SelectedLot,
+} from './types';
+
+/**
+ * Hybrid matching pipeline:
+ *
+ *   buyer order
+ *     -> STEP 1  deterministic feasibility filter   (evaluateHarvest — rules only)
+ *     -> STEP 2  candidate combination generation   (candidates.ts — rules only)
+ *     -> STEP 3  ML ranking of feasible candidates  (ranking.ts — logistic regression)
+ *     -> top 3 recommended combinations, best one becomes the supply plan
+ *
+ * Hard constraints live exclusively in steps 1-2. The ML model never sees an
+ * infeasible option and can never admit one; it only orders feasible ones.
+ */
 
 const normalise = (value: string) => value.trim().toLowerCase();
 
@@ -28,27 +51,24 @@ export function evaluateHarvest(harvest: Harvest, order: BuyerOrder): FarmEvalua
   if (order.variety && normalise(harvest.variety) !== normalise(order.variety)) {
     reasons.push(`Variety is ${harvest.variety}`);
   }
-  if (harvest.brix < order.minimumBrix) {
-    reasons.push(`Brix ${harvest.brix.toFixed(1)} is below ${order.minimumBrix.toFixed(1)}`);
-  }
-  if (harvest.defectsPct > order.maximumDefectsPct) {
+
+  // Condition is seller-provided: it gates matching, and the buyer can ask the
+  // seller about the details in chat before confirming.
+  const conditionRank: Record<string, number> = { Economy: 1, Standard: 2, Premium: 3 };
+  const requiredRank = order.minimumCondition === 'Any' ? 0 : conditionRank[order.minimumCondition];
+  if (conditionRank[harvest.condition] < requiredRank) {
     reasons.push(
-      `Defects ${harvest.defectsPct.toFixed(1)}% exceed ${order.maximumDefectsPct.toFixed(1)}%`,
+      `Condition is ${harvest.condition.toLowerCase()}, buyer needs ${order.minimumCondition.toLowerCase()} or better`,
     );
   }
-  if (harvest.firmness !== order.firmness) {
-    reasons.push(`Firmness is ${harvest.firmness.toLowerCase()}`);
-  }
+
   if (harvest.harvestDate > order.deliveryDate) {
     reasons.push('Harvest is not ready before delivery');
   }
 
-  const qualityScore = Math.max(
-    0,
-    Math.min(100, 72 + (harvest.brix - order.minimumBrix) * 6 - harvest.defectsPct * 1.5),
-  );
+  const conditionScore = { Economy: 66, Standard: 79, Premium: 92 }[harvest.condition];
   const distanceScore = Math.max(0, 100 - distance / 5);
-  const score = qualityScore * 0.45 + harvest.reliability * 0.35 + distanceScore * 0.2;
+  const score = conditionScore * 0.45 + harvest.reliability * 0.35 + distanceScore * 0.2;
 
   return {
     harvest,
@@ -109,13 +129,38 @@ function calculateCosts(selected: SelectedLot[], fulfilledKg: number): CostBreak
   };
 }
 
-export function buildMatchPlan(order: BuyerOrder, harvests: Harvest[]): MatchPlan {
-  const evaluations = harvests.map((harvest) => evaluateHarvest(harvest, order));
-  const eligible = evaluations
-    .filter((evaluation) => evaluation.eligible)
-    .sort((a, b) => b.score - a.score || a.distanceKm - b.distanceKm);
-  const rejected = evaluations.filter((evaluation) => !evaluation.eligible);
+function rankFeasibleCombinations(
+  order: BuyerOrder,
+  eligible: FarmEvaluation[],
+): RankedCombination[] {
+  const combinations = generateCombinations(order, eligible);
 
+  const ranked = combinations.map((combination) => {
+    const lots = allocate(order, combination);
+    const fulfilledKg = lots.reduce((sum, lot) => sum + lot.allocatedKg, 0);
+    const cost = calculateCosts(lots, fulfilledKg);
+    const withinBudget = cost.deliveredPerKg <= order.maximumDeliveredPricePerKg;
+    return rankCombination(order, lots, cost, withinBudget);
+  });
+
+  // The buyer's price ceiling is a hard constraint: over-budget combinations
+  // only surface when nothing affordable exists, and stay flagged in the UI.
+  const affordable = ranked.filter((combination) => combination.withinBudget);
+  const pool = affordable.length > 0 ? affordable : ranked;
+
+  return pool
+    .sort(
+      (a, b) =>
+        b.finalScore - a.finalScore ||
+        a.cost.deliveredPerKg - b.cost.deliveredPerKg ||
+        a.id.localeCompare(b.id),
+    )
+    .slice(0, 3)
+    .map((combination, index) => ({ ...combination, rank: index + 1 }));
+}
+
+/** Old greedy fill, kept as the fallback when total supply cannot cover the order. */
+function greedyPartialSelection(order: BuyerOrder, eligible: FarmEvaluation[]) {
   let remaining = order.quantityKg;
   const selected: SelectedLot[] = [];
   const eligibleNotNeeded: FarmEvaluation[] = [];
@@ -130,15 +175,41 @@ export function buildMatchPlan(order: BuyerOrder, harvests: Harvest[]): MatchPla
     remaining -= allocatedKg;
   }
 
+  return { selected, eligibleNotNeeded };
+}
+
+export function buildMatchPlan(
+  order: BuyerOrder,
+  harvests: Harvest[],
+  preferredCombinationId?: string | null,
+): MatchPlan {
+  // STEP 1 — deterministic feasibility filter (hard rules, no ML).
+  const evaluations = harvests.map((harvest) => evaluateHarvest(harvest, order));
+  const eligible = evaluations
+    .filter((evaluation) => evaluation.eligible)
+    .sort((a, b) => b.score - a.score || a.distanceKm - b.distanceKm);
+  const rejected = evaluations.filter((evaluation) => !evaluation.eligible);
+
+  // STEPS 2-3 — candidate combinations, then ML ranking of feasible ones.
+  // The AI pick (#1) is the default, but the buyer can build the plan from
+  // any ranked combination — all of them already passed every hard rule.
+  const rankedCombinations = rankFeasibleCombinations(order, eligible);
+  const winner =
+    rankedCombinations.find((combination) => combination.id === preferredCombinationId) ??
+    rankedCombinations[0];
+
+  const { selected, eligibleNotNeeded } = winner
+    ? {
+        selected: winner.lots,
+        eligibleNotNeeded: eligible.filter(
+          (evaluation) =>
+            !winner.lots.some((lot) => lot.harvest.id === evaluation.harvest.id),
+        ),
+      }
+    : greedyPartialSelection(order, eligible);
+
   const fulfilledKg = selected.reduce((sum, lot) => sum + lot.allocatedKg, 0);
-  const weightedBrix = fulfilledKg
-    ? selected.reduce((sum, lot) => sum + lot.harvest.brix * lot.allocatedKg, 0) / fulfilledKg
-    : 0;
-  const weightedDefects = fulfilledKg
-    ? selected.reduce((sum, lot) => sum + lot.harvest.defectsPct * lot.allocatedKg, 0) /
-      fulfilledKg
-    : 0;
-  const cost = calculateCosts(selected, fulfilledKg);
+  const cost = winner ? winner.cost : calculateCosts(selected, fulfilledKg);
 
   return {
     order,
@@ -148,12 +219,13 @@ export function buildMatchPlan(order: BuyerOrder, harvests: Harvest[]): MatchPla
     requestedKg: order.quantityKg,
     fulfilledKg,
     fillRate: order.quantityKg ? Math.min(1, fulfilledKg / order.quantityKg) : 0,
-    weightedBrix,
-    weightedDefects,
     cost,
     withinBudget:
       fulfilledKg >= order.quantityKg &&
       cost.deliveredPerKg <= order.maximumDeliveredPricePerKg,
+    rankedCombinations,
+    selectedCombinationId: winner ? winner.id : null,
+    modelInfo: rankingModelInfo(),
     createdAt: new Date().toISOString(),
   };
 }

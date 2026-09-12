@@ -1,0 +1,151 @@
+{
+  "model_type": "logistic_regression",
+  "library": "scikit-learn",
+  "target": "probability that a feasible farm combination fulfils the buyer order",
+  "data_source": "SYNTHETIC fulfilment history (ml/generate_training_data.py, seed 42). Schema matches real fulfilment logs so real data is a drop-in replacement.",
+  "trained_rows": 4500,
+  "test_rows": 1500,
+  "metrics": {
+    "logistic_regression": {
+      "auc": 0.7994,
+      "accuracy": 0.7267,
+      "brier": 0.1803
+    },
+    "random_forest": {
+      "auc": 0.7847,
+      "accuracy": 0.7207,
+      "brier": 0.1861
+    },
+    "gradient_boosting": {
+      "auc": 0.7914,
+      "accuracy": 0.7233,
+      "brier": 0.1845
+    }
+  },
+  "features": [
+    "avg_reliability",
+    "min_reliability",
+    "on_time_rate",
+    "farm_count",
+    "quantity_buffer",
+    "avg_distance_km",
+    "max_distance_km",
+    "harvest_buffer_days",
+    "price_headroom",
+    "prior_buyer_share"
+  ],
+  "means": [
+    0.832244,
+    0.744847,
+    0.831145,
+    3.014444,
+    0.181994,
+    168.494022,
+    239.466022,
+    3.523724,
+    0.120823,
+    0.333514
+  ],
+  "stds": [
+    0.075927,
+    0.11937,
+    0.094348,
+    1.419864,
+    0.180988,
+    88.557469,
+    106.871689,
+    2.369657,
+    0.120907,
+    0.223866
+  ],
+  "coefficients": [
+    0.208188,
+    0.774044,
+    0.234968,
+    -0.419855,
+    0.320301,
+    -0.301988,
+    -0.205388,
+    0.521738,
+    0.208191,
+    0.263716
+  ],
+  "intercept": -0.441462,
+  "verification_cases": [
+    {
+      "features": {
+        "avg_reliability": 0.8794,
+        "min_reliability": 0.6565,
+        "on_time_rate": 0.9103,
+        "farm_count": 4.0,
+        "quantity_buffer": 0.0442,
+        "avg_distance_km": 26.3,
+        "max_distance_km": 44.2,
+        "harvest_buffer_days": 1.23,
+        "price_headroom": 0.1785,
+        "prior_buyer_share": 0.2754
+      },
+      "expected_probability": 0.302125
+    },
+    {
+      "features": {
+        "avg_reliability": 0.9596,
+        "min_reliability": 0.9596,
+        "on_time_rate": 1.0,
+        "farm_count": 1.0,
+        "quantity_buffer": 0.1563,
+        "avg_distance_km": 31.4,
+        "max_distance_km": 31.4,
+        "harvest_buffer_days": 7.26,
+        "price_headroom": 0.2042,
+        "prior_buyer_share": 0.4159
+      },
+      "expected_probability": 0.98525
+    },
+    {
+      "features": {
+        "avg_reliability": 0.7528,
+        "min_reliability": 0.6689,
+        "on_time_rate": 0.7654,
+        "farm_count": 5.0,
+        "quantity_buffer": 0.2232,
+        "avg_distance_km": 39.0,
+        "max_distance_km": 215.6,
+        "harvest_buffer_days": 7.14,
+        "price_headroom": 0.3569,
+        "prior_buyer_share": 0.0665
+      },
+      "expected_probability": 0.388392
+    },
+    {
+      "features": {
+        "avg_reliability": 0.8371,
+        "min_reliability": 0.6403,
+        "on_time_rate": 0.8225,
+        "farm_count": 5.0,
+        "quantity_buffer": 0.096,
+        "avg_distance_km": 299.1,
+        "max_distance_km": 316.4,
+        "harvest_buffer_days": 1.67,
+        "price_headroom": 0.1456,
+        "prior_buyer_share": 0.0494
+      },
+      "expected_probability": 0.040687
+    },
+    {
+      "features": {
+        "avg_reliability": 0.7787,
+        "min_reliability": 0.45,
+        "on_time_rate": 0.8425,
+        "farm_count": 5.0,
+        "quantity_buffer": 0.0738,
+        "avg_distance_km": 115.9,
+        "max_distance_km": 156.0,
+        "harvest_buffer_days": 2.92,
+        "price_headroom": -0.0354,
+        "prior_buyer_share": 0.3169
+      },
+      "expected_probability": 0.034481
+    }
+  ]
+}
