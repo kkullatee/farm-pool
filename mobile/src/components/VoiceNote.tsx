@@ -40,11 +40,23 @@ export function VoiceNote({ value, onChange }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.copy}>
-        <Text style={styles.title}>{state.isRecording ? `Recording ${seconds}s` : 'Voice harvest note'}</Text>
+        <Text style={styles.title}>
+          {state.isRecording ? `Recording ${seconds}s` : 'Describe your harvest by voice'}
+        </Text>
         <Text style={styles.description}>
-          {value ? 'Voice note attached' : 'Describe the crop naturally instead of typing everything.'}
+          {value
+            ? 'Recording attached. You can re-record or remove it.'
+            : 'Say the crop, amount, location, date and price. We fill the form for you.'}
         </Text>
       </View>
+      {value && !state.isRecording ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.removeButton}
+          onPress={() => onChange(null)}>
+          <Text style={styles.removeText}>Remove</Text>
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity
         accessibilityRole="button"
         style={[styles.recordButton, state.isRecording && styles.stopButton]}
@@ -79,6 +91,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 3,
+  },
+  removeButton: {
+    alignItems: 'center',
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    marginRight: 7,
+  },
+  removeText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '800',
   },
   recordButton: {
     minWidth: 66,

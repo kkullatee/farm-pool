@@ -66,6 +66,10 @@ export default function FarmerResultScreen() {
             <Text style={styles.profileValue}>{lastHarvest.condition} (seller-provided)</Text>
           </View>
           <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Photo check</Text>
+            <Text style={styles.profileValue}>{assessment.photoStatus ?? 'No photo'}</Text>
+          </View>
+          <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Harvest date</Text>
             <Text style={styles.profileValue}>{lastHarvest.harvestDate}</Text>
           </View>
@@ -86,6 +90,21 @@ export default function FarmerResultScreen() {
             </View>
           ))}
         </View>
+
+        {assessment.photoStatus === 'Manual review' || assessment.photoStatus === 'Retake required' ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningTitle}>
+              {assessment.photoStatus === 'Retake required'
+                ? 'Please retake the photo'
+                : 'Photo waiting for review'}
+            </Text>
+            <Text style={styles.warningText}>
+              {(assessment.photoChecks ?? []).join('. ') ||
+                'The photo could not be checked automatically.'}
+              {' '}Buyers will not see this photo until it is checked.
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.warningCard}>
           <Text style={styles.warningTitle}>Taste cannot come from a photo alone</Text>

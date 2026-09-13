@@ -24,10 +24,24 @@ import { VoiceNote } from '@/components/VoiceNote';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { CROPS, OTHER_VARIETY, QuantityUnit, cropInfo, isEstimatedUnit, toKg } from '@/data/crops';
 import { coordinatesFor } from '@/data/demo';
-import { analyseProduce, transcribeVoice } from '@/lib/ai';
+import { analyseProduce, transcribeVoice, voiceToListing } from '@/lib/ai';
 import { colors } from '@/lib/theme';
-import { ConditionGrade } from '@/lib/types';
+import { ConditionGrade, VoiceListing } from '@/lib/types';
 import { FieldErrors, validateHarvest } from '@/lib/validation';
+
+const VOICE_FIELD_LABELS: Record<string, string> = {
+  crop: 'crop',
+  variety: 'variety',
+  quantity: 'quantity',
+  unit: 'unit',
+  location: 'location',
+  harvest_date: 'harvest date',
+  price_per_kg: 'price',
+  condition: 'condition',
+  notes: 'notes',
+};
+
+const voiceFieldLabel = (field: string) => VOICE_FIELD_LABELS[field] ?? field.replace('_', ' ');
 
 type FormState = {
   farmerName: string;
@@ -64,6 +78,8 @@ export default function FarmerScreen() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [voiceUri, setVoiceUri] = useState<string | null>(null);
+  const [voiceResult, setVoiceResult] = useState<VoiceListing | null>(null);
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const selectedCrop = cropInfo(form.crop);
@@ -77,6 +93,49 @@ export default function FarmerScreen() {
     // Variety options depend on the crop, so a crop change resets the variety.
     setForm((current) => ({ ...current, crop, variety: '', otherVariety: '' }));
     setErrors((current) => ({ ...current, crop: '', variety: '', otherVariety: '' }));
+  }
+
+  async function fillFromVoice() {
+    if (!voiceUri) return;
+    setVoiceBusy(true);
+    try {
+      const result = await voiceToListing(voiceUri);
+      setVoiceResult(result);
+      const extraction = result.extraction;
+      if (!extraction) return;
+      setErrors({});
+      setForm((current) => {
+        const next = { ...current };
+        if (extraction.crop) {
+          const info = cropInfo(extraction.crop);
+          if (info) {
+            next.crop = info.name;
+            next.variety = '';
+            next.otherVariety = '';
+            if (extraction.variety) {
+              const wanted = extraction.variety.trim().toLowerCase();
+              const match = info.varieties.find((option) => option.toLowerCase() === wanted);
+              if (match) {
+                next.variety = match;
+              } else {
+                next.variety = OTHER_VARIETY;
+                next.otherVariety = extraction.variety.trim();
+              }
+            }
+          }
+        }
+        if (extraction.quantity) next.quantity = String(extraction.quantity);
+        if (extraction.unit) next.quantityUnit = extraction.unit;
+        if (extraction.location) next.location = extraction.location;
+        if (extraction.harvest_date) next.harvestDate = extraction.harvest_date;
+        if (extraction.price_per_kg) next.minimumPrice = String(extraction.price_per_kg);
+        if (extraction.condition) next.condition = extraction.condition;
+        if (extraction.notes && !current.notes) next.notes = extraction.notes;
+        return next;
+      });
+    } finally {
+      setVoiceBusy(false);
+    }
   }
 
   function fillDemo() {
@@ -206,8 +265,52 @@ export default function FarmerScreen() {
           <Text style={styles.sectionTitle}>Produce evidence</Text>
           <PhotoCapture value={imageUri} onChange={setImageUri} />
           <View style={styles.voiceWrap}>
-            <VoiceNote value={voiceUri} onChange={setVoiceUri} />
+            <VoiceNote
+              value={voiceUri}
+              onChange={(uri) => {
+                setVoiceUri(uri);
+                if (!uri) setVoiceResult(null);
+              }}
+            />
           </View>
+
+          {voiceUri ? (
+            <TouchableOpacity
+              style={styles.voiceFillButton}
+              disabled={voiceBusy}
+              onPress={fillFromVoice}>
+              {voiceBusy ? (
+                <ActivityIndicator color={colors.primaryDark} />
+              ) : (
+                <Text style={styles.voiceFillText}>Fill form from voice</Text>
+              )}
+            </TouchableOpacity>
+          ) : null}
+
+          {voiceResult?.transcript ? (
+            <View style={styles.voiceCard}>
+              <Text style={styles.voiceEyebrow}>
+                {voiceResult.transcriptSource === 'demo'
+                  ? 'SAMPLE TRANSCRIPT (AI NOT CONNECTED)'
+                  : 'WHAT WE HEARD'}
+              </Text>
+              <Text style={styles.voiceTranscript}>{voiceResult.transcript}</Text>
+              {voiceResult.extraction && voiceResult.extraction.uncertain.length > 0 ? (
+                <Text style={styles.voiceCheck}>
+                  Double-check: {voiceResult.extraction.uncertain.map(voiceFieldLabel).join(', ')}
+                </Text>
+              ) : null}
+              {voiceResult.extraction && voiceResult.extraction.missing.length > 0 ? (
+                <Text style={styles.voiceCheck}>
+                  Still needed: {voiceResult.extraction.missing.map(voiceFieldLabel).join(', ')}.
+                  Add them below.
+                </Text>
+              ) : null}
+              <Text style={styles.voiceFootnote}>
+                Review every filled field before you submit. Nothing is saved until you do.
+              </Text>
+            </View>
+          ) : null}
 
           <Text style={styles.sectionTitle}>Farm and harvest</Text>
           <FormField
@@ -347,6 +450,13 @@ const styles = StyleSheet.create({
   demoFillArrow: { color: colors.lime, fontSize: 27 },
   sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '900', marginTop: 29, marginBottom: 13 },
   voiceWrap: { marginTop: 11 },
+  voiceFillButton: { alignItems: 'center', justifyContent: 'center', minHeight: 46, backgroundColor: colors.primarySoft, borderRadius: 14, marginTop: 10 },
+  voiceFillText: { color: colors.primaryDark, fontSize: 14, fontWeight: '900' },
+  voiceCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 17, padding: 14, marginTop: 10 },
+  voiceEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  voiceTranscript: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 7 },
+  voiceCheck: { color: '#715112', backgroundColor: colors.amberSoft, fontSize: 11, lineHeight: 16, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginTop: 8, overflow: 'hidden' },
+  voiceFootnote: { color: colors.faint, fontSize: 10, lineHeight: 14, marginTop: 9 },
   twoColumns: { flexDirection: 'row', gap: 10 },
   column: { flex: 1 },
   reviewNotice: { backgroundColor: colors.amberSoft, borderRadius: 13, padding: 12, marginTop: -6, marginBottom: 16 },

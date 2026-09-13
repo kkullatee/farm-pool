@@ -8,6 +8,20 @@ type Props = {
   onChange: (uri: string) => void;
 };
 
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
+function acceptAsset(asset: ImagePicker.ImagePickerAsset, onChange: (uri: string) => void) {
+  if (asset.mimeType && !asset.mimeType.startsWith('image/')) {
+    Alert.alert('Not an image', 'Pick a photo file (JPEG or PNG).');
+    return;
+  }
+  if (asset.fileSize && asset.fileSize > MAX_PHOTO_BYTES) {
+    Alert.alert('Photo too large', 'Pick a photo under 10 MB.');
+    return;
+  }
+  onChange(asset.uri);
+}
+
 export function PhotoCapture({ value, onChange }: Props) {
   async function takePhoto() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -21,7 +35,7 @@ export function PhotoCapture({ value, onChange }: Props) {
       aspect: [4, 3],
       quality: 0.7,
     });
-    if (!result.canceled) onChange(result.assets[0].uri);
+    if (!result.canceled) acceptAsset(result.assets[0], onChange);
   }
 
   async function choosePhoto() {
@@ -36,7 +50,7 @@ export function PhotoCapture({ value, onChange }: Props) {
       aspect: [4, 3],
       quality: 0.7,
     });
-    if (!result.canceled) onChange(result.assets[0].uri);
+    if (!result.canceled) acceptAsset(result.assets[0], onChange);
   }
 
   return (

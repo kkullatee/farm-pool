@@ -20,6 +20,8 @@ export type Coordinates = {
   longitude: number;
 };
 
+export type PhotoStatus = 'Accepted' | 'Retake required' | 'Manual review' | 'No photo';
+
 export type QualityAssessment = {
   grade: QualityGrade;
   visualScore: number;
@@ -27,6 +29,31 @@ export type QualityAssessment = {
   observations: string[];
   warning: string;
   source: 'openai' | 'demo';
+  /** Photo screening result. Anything except Accepted is never shown to buyers. */
+  photoStatus?: PhotoStatus;
+  photoChecks?: string[];
+};
+
+/** Listing fields extracted from a spoken harvest description. */
+export type VoiceExtraction = {
+  crop: string | null;
+  variety: string | null;
+  quantity: number | null;
+  unit: 'kg' | 'tonnes' | 'crates' | 'pallets' | null;
+  location: string | null;
+  harvest_date: string | null;
+  price_per_kg: number | null;
+  condition: ConditionGrade | null;
+  notes: string | null;
+  uncertain: string[];
+  missing: string[];
+};
+
+export type VoiceListing = {
+  transcript: string | null;
+  extraction: VoiceExtraction | null;
+  transcriptSource: 'elevenlabs' | 'openai' | 'demo' | 'unavailable';
+  extractionSource: 'claude' | 'demo' | 'unavailable';
 };
 
 export type Harvest = {
