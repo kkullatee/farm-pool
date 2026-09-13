@@ -20,4 +20,10 @@ export const formatMoneyExact = (value: number) =>
 
 export const formatPrice = (value: number) => `$${value.toFixed(2)}/kg`;
 
+/** Deterministic lot code so each farm's produce stays traceable in a pool. */
+export const lotCode = (harvestId: string, stop: number) => {
+  const tail = harvestId.replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
+  return `LOT-${stop}-${tail}`;
+};
+
 export const formatPercent = (value: number) => `${Math.round(value * 100)}%`;

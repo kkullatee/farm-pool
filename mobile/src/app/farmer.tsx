@@ -224,6 +224,7 @@ export default function FarmerScreen() {
         harvestDate: form.harvestDate.trim(),
         minimumPricePerKg: Number(form.minimumPrice),
         condition: form.condition,
+        verification: 'Self-reported',
         reliability: 88,
         needsReview: isOtherVariety,
         quantityEstimated,

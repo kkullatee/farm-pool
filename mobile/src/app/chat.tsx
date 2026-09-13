@@ -65,7 +65,7 @@ export default function ChatScreen() {
             <Text style={styles.headerName}>{harvest.farmerName}</Text>
             <Text style={styles.headerLot}>
               {harvest.crop} · {harvest.variety} · {formatKg(harvest.quantityKg)} ·{' '}
-              {harvest.condition} (seller-provided)
+              {harvest.condition} (seller-provided) · {harvest.verification ?? 'Self-reported'}
             </Text>
           </View>
         </View>

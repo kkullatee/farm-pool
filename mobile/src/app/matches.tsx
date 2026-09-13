@@ -179,6 +179,23 @@ export default function MatchesScreen() {
               <View style={styles.farmNameWrap}>
                 <Text style={styles.farmName}>{lot.harvest.farmerName}</Text>
                 <Text style={styles.farmLocation}>{lot.harvest.location} · {lot.distanceKm} km away</Text>
+                <View
+                  style={[
+                    styles.verifyBadge,
+                    (lot.harvest.verification ?? 'Self-reported') === 'Self-reported' &&
+                      styles.verifyBadgePlain,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.verifyBadgeText,
+                      (lot.harvest.verification ?? 'Self-reported') === 'Self-reported' &&
+                        styles.verifyBadgeTextPlain,
+                    ]}>
+                    {(lot.harvest.verification ?? 'Self-reported') === 'Self-reported'
+                      ? 'Self-reported'
+                      : `✓ ${lot.harvest.verification}`}
+                  </Text>
+                </View>
               </View>
               <TouchableOpacity
                 style={styles.scorePill}
@@ -519,6 +536,10 @@ const styles = StyleSheet.create({
   farmStat: { flex: 1, alignItems: 'center', paddingHorizontal: 3 },
   farmStatLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
   farmStatValue: { color: colors.ink, fontSize: 12, fontWeight: '900', marginTop: 3 },
+  verifyBadge: { alignSelf: 'flex-start', backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5 },
+  verifyBadgePlain: { backgroundColor: colors.background },
+  verifyBadgeText: { color: colors.primaryDark, fontSize: 9, fontWeight: '800' },
+  verifyBadgeTextPlain: { color: colors.faint },
   breakdownCard: { backgroundColor: colors.background, borderRadius: 14, padding: 12, marginTop: 12, gap: 7 },
   breakdownRow: { flexDirection: 'row', alignItems: 'center' },
   breakdownLabel: { width: 88, color: colors.muted, fontSize: 10, fontWeight: '800' },

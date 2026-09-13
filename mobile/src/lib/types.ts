@@ -3,6 +3,13 @@ export type QualityGrade = 'Premium' | 'Standard' | 'Processing';
 /** Seller-provided condition of the lot. Not verified by the platform. */
 export type ConditionGrade = 'Premium' | 'Standard' | 'Economy';
 
+/** How far this seller's account has been verified. New sellers start self-reported. */
+export type VerificationLevel =
+  | 'Self-reported'
+  | 'Identity verified'
+  | 'Business verified'
+  | 'Physically verified';
+
 /** Buyer's minimum acceptable condition. 'Any' accepts every grade. */
 export type MinimumCondition = 'Any' | 'Standard' | 'Premium';
 
@@ -68,6 +75,8 @@ export type Harvest = {
   minimumPricePerKg: number;
   /** Seller-provided condition grade. Confirmed with the seller, not lab-tested. */
   condition: ConditionGrade;
+  /** Seller account verification level. Defaults to Self-reported. */
+  verification?: VerificationLevel;
   reliability: number;
   /** Historical on-time delivery rate 0-100. Defaults to reliability when unknown. */
   onTimePct?: number;

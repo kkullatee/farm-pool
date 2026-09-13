@@ -70,6 +70,12 @@ export default function FarmerResultScreen() {
             <Text style={styles.profileValue}>{assessment.photoStatus ?? 'No photo'}</Text>
           </View>
           <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Account status</Text>
+            <Text style={styles.profileValue}>
+              {lastHarvest.verification ?? 'Self-reported'}
+            </Text>
+          </View>
+          <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Harvest date</Text>
             <Text style={styles.profileValue}>{lastHarvest.harvestDate}</Text>
           </View>

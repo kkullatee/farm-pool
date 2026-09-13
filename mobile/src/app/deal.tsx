@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFarmPool } from '@/context/FarmPoolContext';
-import { formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
+import { formatKg, formatMoneyExact, formatPrice, lotCode } from '@/lib/format';
 import { colors } from '@/lib/theme';
 
 export default function DealScreen() {
@@ -70,7 +70,7 @@ export default function DealScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>Farmer commitments</Text>
-        {plan.selected.map((lot) => (
+        {plan.selected.map((lot, index) => (
           <View key={lot.harvest.id} style={styles.payoutCard}>
             <View style={styles.payoutMark}>
               <Text style={styles.payoutMarkText}>{lot.harvest.farmerName.slice(0, 1)}</Text>
@@ -78,6 +78,7 @@ export default function DealScreen() {
             <View style={styles.payoutCopy}>
               <Text style={styles.payoutName}>{lot.harvest.farmerName}</Text>
               <Text style={styles.payoutDetail}>{formatKg(lot.allocatedKg)} · {lot.harvest.location}</Text>
+              <Text style={styles.payoutLot}>{lotCode(lot.harvest.id, index + 1)} · scanned at pickup and delivery</Text>
             </View>
             <View style={styles.payoutValueWrap}>
               <Text style={styles.payoutValue}>{formatMoneyExact(lot.allocatedKg * lot.harvest.minimumPricePerKg)}</Text>
@@ -85,6 +86,23 @@ export default function DealScreen() {
             </View>
           </View>
         ))}
+
+        <View style={styles.inspectionCard}>
+          <Text style={styles.inspectionEyebrow}>PICKUP CHECK (SAMPLE RECORD)</Text>
+          <Text style={styles.inspectionTitle}>Every lot is checked before it joins the pool</Text>
+          {plan.selected.map((lot, index) => (
+            <View key={lot.harvest.id} style={styles.inspectionRow}>
+              <Text style={styles.inspectionLot}>{lotCode(lot.harvest.id, index + 1)}</Text>
+              <Text style={styles.inspectionStatus}>Scheduled at pickup</Text>
+            </View>
+          ))}
+          <Text style={styles.inspectionText}>
+            The checkpoint team records who inspected each lot, what was used to check it, and the
+            result. A failed lot is removed and replaced from the reserve, and both the buyer and
+            the farmer are told. Payment releases only after the buyer accepts the delivery.
+            Reliability scores update after every completed order.
+          </Text>
+        </View>
 
         <Text style={styles.sectionTitle}>Autonomous workflow</Text>
         <View style={styles.timelineCard}>
@@ -135,6 +153,16 @@ export default function DealScreen() {
         )}
         <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/matches')}>
           <Text style={styles.secondaryButtonText}>Review the supply plan</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() =>
+            Alert.alert(
+              'Report a problem',
+              'Tell us what went wrong with this order. For lot questions, chat with the seller from the supply plan. FarmPool holds payment until the problem is resolved.',
+            )
+          }>
+          <Text style={styles.disputeText}>Report a problem</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -198,6 +226,15 @@ const styles = StyleSheet.create({
   payoutCopy: { flex: 1, paddingHorizontal: 10 },
   payoutName: { color: colors.ink, fontSize: 12, fontWeight: '900' },
   payoutDetail: { color: colors.faint, fontSize: 9, marginTop: 3 },
+  payoutLot: { color: colors.primary, fontSize: 9, fontWeight: '700', marginTop: 3 },
+  inspectionCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 4 },
+  inspectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  inspectionTitle: { color: colors.ink, fontSize: 16, fontWeight: '900', marginTop: 5, marginBottom: 8 },
+  inspectionRow: { flexDirection: 'row', justifyContent: 'space-between', borderBottomColor: colors.border, borderBottomWidth: 1, paddingVertical: 9 },
+  inspectionLot: { color: colors.ink, fontSize: 12, fontWeight: '800' },
+  inspectionStatus: { color: colors.amber, fontSize: 11, fontWeight: '800' },
+  inspectionText: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 11 },
+  disputeText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
   payoutValueWrap: { alignItems: 'flex-end' },
   payoutValue: { color: colors.primary, fontSize: 13, fontWeight: '900' },
   payoutLabel: { color: colors.faint, fontSize: 8, marginTop: 3 },
