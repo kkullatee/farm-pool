@@ -230,7 +230,13 @@ export function buildMatchPlan(
   preferredCombinationId?: string | null,
 ): MatchPlan {
   // STEP 1 — deterministic feasibility filter (hard rules, no ML).
-  const evaluations = harvests.map((harvest) => evaluateHarvest(harvest, order));
+  // Other crops are a different market, not a rejection: only same-crop lots
+  // are evaluated, so the rejected list explains near-misses (wrong variety,
+  // condition, timing), never bananas on a mango order.
+  const sameCrop = harvests.filter(
+    (harvest) => harvest.crop.toLowerCase() === order.crop.toLowerCase(),
+  );
+  const evaluations = sameCrop.map((harvest) => evaluateHarvest(harvest, order));
   const eligible = evaluations
     .filter((evaluation) => evaluation.eligible)
     .sort((a, b) => b.score - a.score || a.distanceKm - b.distanceKm);
