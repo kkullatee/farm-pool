@@ -363,7 +363,7 @@ Do not claim the photo proves Brix, internal quality, food safety, exact variety
 
     client = Anthropic(timeout=45.0)
     response = client.messages.parse(
-        model=ANTHROPIC_VISION_MODEL,
+        model=ANTHROPIC_MODEL,
         max_tokens=1024,
         messages=[
             {

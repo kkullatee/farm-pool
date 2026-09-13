@@ -16,14 +16,9 @@ import { ProduceThumb } from '@/components/ProduceThumb';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { VisualAssessmentSummary } from '@/components/VisualAssessmentSummary';
 import { useFarmPool } from '@/context/FarmPoolContext';
-<<<<<<< HEAD
 import { coordinatePoolPlan } from '@/lib/ai';
 import { farmLabel, formatKg, formatMoneyExact, formatPercent, formatPrice } from '@/lib/format';
-import { colors } from '@/lib/theme';
-=======
-import { farmLabel, formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
 import { colors, fonts } from '@/lib/theme';
->>>>>>> 66aca21 (Save local changes)
 import { FEATURE_LABELS } from '@/lib/features';
 import { modelEvaluation } from '@/lib/ranking';
 import {
