@@ -22,7 +22,7 @@ console.log(
 const plan = buildMatchPlan(demoOrder, demoHarvests);
 
 console.log(
-  `\nSTEP 1 rules: ${demoHarvests.length} farms -> ${demoHarvests.length - plan.rejected.length} feasible, ${plan.rejected.length} rejected`,
+  `\nSTEP 1 rules: ${demoHarvests.length} farms listed -> ${plan.selected.length + plan.eligibleNotNeeded.length} feasible for this order, ${plan.rejected.length} rejected (same crop only)`,
 );
 plan.rejected.forEach((r) => console.log(`  x ${r.harvest.farmerName}: ${r.reasons.join(' / ')}`));
 
