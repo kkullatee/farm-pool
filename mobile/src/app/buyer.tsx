@@ -160,7 +160,6 @@ export default function BuyerScreen() {
           />
 
           <TouchableOpacity style={styles.demoFill} onPress={fillDemo}>
-            <Text style={styles.demoFillIcon}>✦</Text>
             <View style={styles.demoFillCopy}>
               <Text style={styles.demoFillTitle}>Load the judge demo order</Text>
               <Text style={styles.demoFillText}>10,000 kg to FreshMart Cairns</Text>
@@ -273,18 +272,18 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   page: { flex: 1 },
   container: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 55 },
-  demoFill: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.ink, borderRadius: 19, padding: 15, marginTop: 24 },
-  demoFillIcon: { color: colors.lime, fontSize: 21, fontWeight: '900', marginRight: 12 },
+  demoFill: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 18 },
+  demoFillIcon: { color: colors.tan, fontSize: 21, fontWeight: '800', marginRight: 12 },
   demoFillCopy: { flex: 1 },
-  demoFillTitle: { color: colors.surface, fontSize: 14, fontWeight: '900' },
-  demoFillText: { color: '#BFC9C0', fontSize: 11, marginTop: 3 },
-  demoFillArrow: { color: colors.lime, fontSize: 28 },
-  sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '900', marginTop: 29, marginBottom: 14 },
+  demoFillTitle: { color: colors.ink, fontSize: 14, fontWeight: '800' },
+  demoFillText: { color: colors.muted, fontSize: 11, marginTop: 3 },
+  demoFillArrow: { color: colors.tan, fontSize: 28 },
+  sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '800', marginTop: 29, marginBottom: 14 },
   twoColumns: { flexDirection: 'row', gap: 10 },
   column: { flex: 1 },
   conditionHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -6, marginBottom: 16 },
-  submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 17, marginTop: 14, paddingHorizontal: 18 },
-  submitText: { color: colors.surface, fontSize: 16, fontWeight: '900' },
-  submitArrow: { position: 'absolute', right: 18, color: colors.lime, fontSize: 29 },
+  submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 12, marginTop: 14, paddingHorizontal: 18 },
+  submitText: { color: colors.surface, fontSize: 16, fontWeight: '800' },
+  submitArrow: { position: 'absolute', right: 18, color: '#F5EFE2', fontSize: 29 },
   footnote: { color: colors.faint, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 13, paddingHorizontal: 15 },
 });

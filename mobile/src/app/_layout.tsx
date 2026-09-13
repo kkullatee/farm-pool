@@ -13,8 +13,17 @@ export default function RootLayout() {
           headerShown: false,
           animation: 'slide_from_right',
           contentStyle: { backgroundColor: colors.background },
-        }}
-      />
+        }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="matches" />
+        <Stack.Screen name="listings" />
+        <Stack.Screen name="account" />
+        <Stack.Screen name="buyer" />
+        <Stack.Screen name="farmer" />
+        <Stack.Screen name="farmer-result" />
+        <Stack.Screen name="chat" />
+        <Stack.Screen name="how-it-works" />
+      </Stack>
     </FarmPoolProvider>
   );
 }

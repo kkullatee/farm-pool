@@ -255,11 +255,10 @@ export default function FarmerScreen() {
           <ScreenHeader
             eyebrow="FARMER ONBOARDING"
             title="List a harvest"
-            description="Give buyers a clear quality profile, not just a photo and a promise."
+            description="Crop, quantity, price and a photo. Buyers see exactly what you enter."
           />
 
           <TouchableOpacity style={styles.demoFill} onPress={fillDemo}>
-            <Text style={styles.demoFillIcon}>✦</Text>
             <View style={styles.demoFillCopy}>
               <Text style={styles.demoFillTitle}>Fill with demo farm data</Text>
               <Text style={styles.demoFillText}>Fastest way to test the full flow</Text>
@@ -456,8 +455,8 @@ export default function FarmerScreen() {
             )}
           </TouchableOpacity>
           <Text style={styles.footnote}>
-            The AI screen supports physical sampling, food safety checks and a final buyer
-            inspection. It does not replace them.
+            Photos are checked automatically. Physical sampling and a final buyer inspection
+            still happen at pickup.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -469,34 +468,34 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   page: { flex: 1 },
   container: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 55 },
-  demoFill: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.ink, borderRadius: 18, padding: 14, marginTop: 24 },
-  demoFillIcon: { color: colors.lime, fontSize: 21, width: 31 },
+  demoFill: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 18 },
+  demoFillIcon: { color: colors.tan, fontSize: 21, width: 31 },
   demoFillCopy: { flex: 1 },
-  demoFillTitle: { color: colors.surface, fontSize: 14, fontWeight: '800' },
-  demoFillText: { color: '#BFC9C0', fontSize: 11, marginTop: 3 },
-  demoFillArrow: { color: colors.lime, fontSize: 27 },
-  sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '900', marginTop: 29, marginBottom: 13 },
+  demoFillTitle: { color: colors.ink, fontSize: 14, fontWeight: '700' },
+  demoFillText: { color: colors.muted, fontSize: 11, marginTop: 3 },
+  demoFillArrow: { color: colors.tan, fontSize: 27 },
+  sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '800', marginTop: 29, marginBottom: 13 },
   voiceWrap: { marginTop: 11 },
-  voiceFillButton: { alignItems: 'center', justifyContent: 'center', minHeight: 46, backgroundColor: colors.primarySoft, borderRadius: 14, marginTop: 10 },
-  voiceFillText: { color: colors.primaryDark, fontSize: 14, fontWeight: '900' },
-  voiceCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 17, padding: 14, marginTop: 10 },
-  voiceEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  voiceFillButton: { alignItems: 'center', justifyContent: 'center', minHeight: 46, backgroundColor: colors.primarySoft, borderRadius: 10, marginTop: 10 },
+  voiceFillText: { color: colors.primaryDark, fontSize: 14, fontWeight: '800' },
+  voiceCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 14, marginTop: 10 },
+  voiceEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   voiceTranscript: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 7 },
-  voiceCheck: { color: '#715112', backgroundColor: colors.amberSoft, fontSize: 11, lineHeight: 16, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginTop: 8, overflow: 'hidden' },
+  voiceCheck: { color: colors.amber, backgroundColor: colors.amberSoft, fontSize: 11, lineHeight: 16, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginTop: 8, overflow: 'hidden' },
   voiceFootnote: { color: colors.faint, fontSize: 10, lineHeight: 14, marginTop: 9 },
-  voiceErrorCard: { backgroundColor: colors.dangerSoft, borderRadius: 15, padding: 13, marginTop: 10 },
-  voiceErrorTitle: { color: colors.danger, fontSize: 13, fontWeight: '900' },
+  voiceErrorCard: { backgroundColor: colors.dangerSoft, borderRadius: 10, padding: 13, marginTop: 10 },
+  voiceErrorTitle: { color: colors.danger, fontSize: 13, fontWeight: '800' },
   voiceErrorText: { color: '#7A4A42', fontSize: 11, lineHeight: 16, marginTop: 4 },
   voiceSampleButton: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 11, paddingVertical: 9, marginTop: 9 },
   voiceSampleText: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   twoColumns: { flexDirection: 'row', gap: 10 },
   column: { flex: 1 },
-  reviewNotice: { backgroundColor: colors.amberSoft, borderRadius: 13, padding: 12, marginTop: -6, marginBottom: 16 },
-  reviewNoticeText: { color: '#715112', fontSize: 11, lineHeight: 16 },
+  reviewNotice: { backgroundColor: colors.amberSoft, borderRadius: 10, padding: 12, marginTop: -6, marginBottom: 16 },
+  reviewNoticeText: { color: colors.amber, fontSize: 11, lineHeight: 16 },
   conditionHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -6, marginBottom: 16 },
-  submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 17, marginTop: 14, paddingHorizontal: 17 },
-  submitText: { color: colors.surface, fontSize: 16, fontWeight: '900' },
-  submitArrow: { position: 'absolute', right: 18, color: colors.lime, fontSize: 29 },
+  submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 12, marginTop: 14, paddingHorizontal: 17 },
+  submitText: { color: colors.surface, fontSize: 16, fontWeight: '800' },
+  submitArrow: { position: 'absolute', right: 18, color: '#F5EFE2', fontSize: 29 },
   disabled: { opacity: 0.62 },
   footnote: { color: colors.faint, fontSize: 10, lineHeight: 15, textAlign: 'center', paddingHorizontal: 12, marginTop: 13 },
 });

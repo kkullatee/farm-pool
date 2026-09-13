@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { RoleSwitch } from '@/components/RoleSwitch';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg } from '@/lib/format';
 import { colors } from '@/lib/theme';
@@ -82,14 +81,13 @@ export default function ChatScreen() {
               {harvest.condition} (seller-provided) · {harvest.verification ?? 'Self-reported'}
             </Text>
           </View>
-          <RoleSwitch />
         </View>
 
         {role === 'seller' ? (
           <View style={[styles.roleBanner, wrongSeller && styles.roleBannerBlocked]}>
             <Text style={styles.roleBannerText}>
               {wrongSeller
-                ? `This conversation belongs to ${harvest.farmerName}. Switch your demo seller on the home screen to reply.`
+                ? `This conversation belongs to ${harvest.farmerName}. Switch your demo seller in Account to reply.`
                 : `You are replying as ${harvest.farmerName}`}
             </Text>
           </View>
@@ -166,7 +164,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   page: { flex: 1 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 14 },
-  emptyTitle: { color: colors.ink, fontSize: 22, fontWeight: '900' },
+  emptyTitle: { color: colors.ink, fontSize: 22, fontWeight: '800' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -176,22 +174,22 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
   },
-  backButton: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  backText: { color: colors.primary, fontSize: 24, fontWeight: '900', marginTop: -3 },
+  backButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  backText: { color: colors.primary, fontSize: 24, fontWeight: '800', marginTop: -3 },
   headerCopy: { flex: 1, paddingHorizontal: 11 },
-  headerName: { color: colors.ink, fontSize: 15, fontWeight: '900' },
+  headerName: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   headerLot: { color: colors.faint, fontSize: 10, marginTop: 3 },
   thread: { flex: 1 },
   threadContent: { padding: 16, paddingBottom: 10 },
-  noticeCard: { backgroundColor: colors.primarySoft, borderRadius: 15, padding: 13, marginBottom: 14 },
-  noticeText: { color: '#47684F', fontSize: 12, lineHeight: 18 },
-  lotPhoto: { width: '100%', height: 160, borderRadius: 15, marginBottom: 14 },
+  noticeCard: { backgroundColor: colors.primarySoft, borderRadius: 10, padding: 13, marginBottom: 14 },
+  noticeText: { color: colors.primaryDark, fontSize: 12, lineHeight: 18 },
+  lotPhoto: { width: '100%', height: 160, borderRadius: 10, marginBottom: 14 },
   roleBanner: { backgroundColor: colors.amberSoft, paddingHorizontal: 16, paddingVertical: 8 },
-  roleBannerText: { color: '#715112', fontSize: 11, fontWeight: '800' },
+  roleBannerText: { color: colors.amber, fontSize: 11, fontWeight: '800' },
   roleBannerBlocked: { backgroundColor: colors.dangerSoft },
   mineWrap: { alignItems: 'flex-end', marginBottom: 9 },
   theirsWrap: { alignItems: 'flex-start', marginBottom: 9 },
-  bubble: { maxWidth: '82%', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10 },
+  bubble: { maxWidth: '82%', borderRadius: 12, paddingHorizontal: 13, paddingVertical: 10 },
   mineBubble: { backgroundColor: colors.primary, borderBottomRightRadius: 5 },
   theirsBubble: { backgroundColor: colors.surface, borderBottomLeftRadius: 5 },
   bubbleText: { fontSize: 14, lineHeight: 19 },
@@ -219,13 +217,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 12,
     fontSize: 14,
     paddingHorizontal: 13,
     paddingVertical: 10,
     maxHeight: 110,
   },
-  sendButton: { backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 12 },
+  sendButton: { backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 12 },
   sendDisabled: { opacity: 0.4 },
-  sendText: { color: colors.surface, fontSize: 14, fontWeight: '900' },
+  sendText: { color: colors.surface, fontSize: 14, fontWeight: '800' },
 });

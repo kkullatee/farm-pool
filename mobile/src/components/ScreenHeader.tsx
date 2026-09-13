@@ -4,13 +4,14 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '@/lib/theme';
 
 type Props = {
-  eyebrow: string;
+  /** Kept for compatibility; no longer rendered. Titles carry the screen. */
+  eyebrow?: string;
   title: string;
   description?: string;
   showBack?: boolean;
 };
 
-export function ScreenHeader({ eyebrow, title, description, showBack = true }: Props) {
+export function ScreenHeader({ title, description, showBack = true }: Props) {
   const router = useRouter();
 
   return (
@@ -24,7 +25,6 @@ export function ScreenHeader({ eyebrow, title, description, showBack = true }: P
           <Text style={styles.backText}>‹ Back</Text>
         </TouchableOpacity>
       )}
-      <Text style={styles.eyebrow}>{eyebrow}</Text>
       <Text style={styles.title}>{title}</Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
     </View>
@@ -34,34 +34,26 @@ export function ScreenHeader({ eyebrow, title, description, showBack = true }: P
 const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
-    paddingVertical: 8,
+    paddingVertical: 6,
     paddingRight: 18,
-    marginBottom: 18,
+    marginBottom: 8,
   },
   backText: {
     color: colors.primary,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.4,
+    fontSize: 15,
+    fontWeight: '600',
   },
   title: {
     color: colors.ink,
-    fontSize: 36,
+    fontSize: 21,
     fontWeight: '800',
-    letterSpacing: -1.1,
-    lineHeight: 41,
-    marginTop: 8,
+    letterSpacing: -0.3,
+    marginTop: 2,
   },
   description: {
     color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 5,
   },
 });
-

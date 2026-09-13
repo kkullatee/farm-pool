@@ -36,12 +36,12 @@ export default function MatchesScreen() {
 
   function approve() {
     approveDeal();
-    router.push('/deal');
+    router.push('/orders');
   }
 
   if (!plan) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.empty}>
           <Text style={styles.emptyEyebrow}>NO ACTIVE ORDER</Text>
           <Text style={styles.emptyTitle}>Let FarmPool build a supply plan</Text>
@@ -72,10 +72,9 @@ export default function MatchesScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <ScreenHeader
-          eyebrow="AI SUPPLY PLAN"
           title={complete ? 'Order assembled' : 'Best available pool'}
           description={`${plan.order.businessName} · ${plan.order.crop} delivery to ${plan.order.deliveryLocation}`}
         />
@@ -189,6 +188,7 @@ export default function MatchesScreen() {
 
             {plan.rankedCombinations.map((combo) => (
               <CombinationCard
+                deliveryDate={plan.order.deliveryDate}
                 key={combo.id}
                 combo={combo}
                 selected={combo.id === plan.selectedCombinationId}
@@ -286,7 +286,7 @@ export default function MatchesScreen() {
                   <Text style={styles.breakdownLabel}>Photo</Text>
                   <Text style={styles.breakdownPhoto}>
                     {lot.harvest.assessment.photoStatus === 'Accepted'
-                      ? 'AI checked'
+                      ? 'Photo checked'
                       : lot.harvest.imageUri
                         ? 'Held until checked'
                         : 'None provided'}
@@ -551,6 +551,7 @@ function CombinationCard({
   selectable,
   overCeiling,
   ceiling,
+  deliveryDate,
   allHarvests,
   declinedNames,
   onSelect,
@@ -560,10 +561,13 @@ function CombinationCard({
   selectable: boolean;
   overCeiling: boolean;
   ceiling: number;
+  deliveryDate: string;
   allHarvests: { id: string; farmerName: string }[];
   declinedNames: string[];
   onSelect: () => void;
 }) {
+  const [whyOpen, setWhyOpen] = useState(false);
+
   return (
     <TouchableOpacity
       activeOpacity={selectable ? 0.85 : 1}
@@ -571,22 +575,24 @@ function CombinationCard({
       onPress={onSelect}
       style={[
         styles.comboCard,
+        !overCeiling && combo.rank === 1 && styles.comboCardRecommended,
         selected && styles.comboCardSelected,
         !selectable && styles.comboCardDisabled,
       ]}>
+      {!overCeiling && combo.rank === 1 ? (
+        <Text style={styles.comboRecommended}>Recommended</Text>
+      ) : null}
       <View style={styles.comboTop}>
-        <View style={[styles.comboRank, selected && styles.comboRankSelected]}>
-          <Text style={[styles.comboRankText, selected && styles.comboRankTextSelected]}>
-            #{combo.rank}
-          </Text>
-        </View>
         <View style={styles.comboNameWrap}>
-          <Text style={styles.comboFarms}>
-            {combo.lots.map((lot) => farmLabel(lot.harvest, allHarvests)).join(' + ')}
+          <Text style={styles.comboHeadline}>
+            {formatKg(combo.fulfilledKg)} · {formatPrice(combo.cost.deliveredPerKg)}/kg delivered
           </Text>
           <Text style={styles.comboMeta}>
-            {formatKg(combo.fulfilledKg)} · {formatPrice(combo.cost.deliveredPerKg)} delivered
-            {!overCeiling && combo.rank === 1 ? ' · AI pick' : ''}
+            {combo.lots.length} supplier{combo.lots.length === 1 ? '' : 's'} · deliver by{' '}
+            {deliveryDate}
+          </Text>
+          <Text style={styles.comboFarms} numberOfLines={2}>
+            {combo.lots.map((lot) => farmLabel(lot.harvest, allHarvests)).join(', ')}
           </Text>
           {declinedNames.length > 0 ? (
             <Text style={styles.comboDeclined}>
@@ -600,154 +606,173 @@ function CombinationCard({
               <Text style={styles.comboOver}>
                 +{formatPrice(combo.cost.deliveredPerKg - ceiling)}
               </Text>
-              <Text style={styles.comboScoreLabel}>
-                {selectable ? (selected ? 'SELECTED' : 'TAP TO USE') : 'ABOVE CEILING'}
-              </Text>
+              <Text style={styles.comboScoreLabel}>over limit</Text>
             </>
           ) : (
             <>
-              <Text style={styles.comboScore}>{Math.round(combo.finalScore * 100)}</Text>
-              <Text style={[styles.comboScoreLabel, selected && styles.comboScoreLabelSelected]}>
-                {selected ? 'SELECTED' : 'TAP TO USE'}
+              <Text style={styles.comboScore}>
+                {Math.round(combo.fulfilmentProbability * 100)}%
               </Text>
+              <Text style={styles.comboScoreLabel}>fulfilment</Text>
             </>
           )}
+          <Text style={[styles.comboSelectHint, selected && styles.comboSelectHintActive]}>
+            {selected ? 'Selected' : selectable ? 'Tap to choose' : ''}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.comboBars}>
-        <ScoreBar label="Fulfilment" value={combo.fulfilmentProbability} ml />
-        <ScoreBar label="Logistics" value={combo.logisticsScore} />
-        <ScoreBar label="Buyer fit" value={combo.buyerFitScore} />
-      </View>
+      <TouchableOpacity style={styles.whyToggle} onPress={() => setWhyOpen((open) => !open)}>
+        <Text style={styles.whyToggleText}>{whyOpen ? 'Hide details' : 'Why this plan?'}</Text>
+      </TouchableOpacity>
 
-      <View style={styles.factorRow}>
-        {combo.topFactors.map((factor) => (
-          <Text
-            key={factor.feature}
-            style={[styles.factorChip, factor.direction === 'negative' && styles.factorChipDown]}>
-            {factor.direction === 'positive' ? '↑' : '↓'} {factor.label}
-          </Text>
-        ))}
-      </View>
-      <Text style={styles.comboWhy}>{combo.explanation}</Text>
+      {whyOpen ? (
+        <View style={styles.whyBody}>
+          <View style={styles.comboBars}>
+            <ScoreBar label="Fulfilment" value={combo.fulfilmentProbability} ml />
+            <ScoreBar label="Logistics" value={combo.logisticsScore} />
+            <ScoreBar label="Buyer fit" value={combo.buyerFitScore} />
+          </View>
+          <View style={styles.factorRow}>
+            {combo.topFactors.map((factor) => (
+              <Text
+                key={factor.feature}
+                style={[
+                  styles.factorChip,
+                  factor.direction === 'negative' && styles.factorChipDown,
+                ]}>
+                {factor.direction === 'positive' ? '↑' : '↓'} {factor.label}
+              </Text>
+            ))}
+          </View>
+          <Text style={styles.comboWhy}>{combo.explanation}</Text>
+        </View>
+      ) : null}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  comboHeadline: { color: colors.ink, fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  comboSelectHint: { color: colors.faint, fontSize: 10, marginTop: 6 },
+  comboSelectHintActive: { color: colors.primary, fontWeight: '700' },
+  whyToggle: { marginTop: 10, alignSelf: 'flex-start' },
+  whyToggleText: { color: colors.tan, fontSize: 12, fontWeight: '700' },
+  whyBody: { marginTop: 4 },
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 55 },
   empty: { flex: 1, justifyContent: 'center', padding: 24 },
-  emptyEyebrow: { color: colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  emptyTitle: { color: colors.ink, fontSize: 31, lineHeight: 36, fontWeight: '900', marginTop: 8 },
+  emptyEyebrow: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+  emptyTitle: { color: colors.ink, fontSize: 31, lineHeight: 36, fontWeight: '800', marginTop: 8 },
   emptyText: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10, marginBottom: 10 },
-  statusCard: { backgroundColor: colors.primary, borderRadius: 23, padding: 19, marginTop: 24 },
-  statusCardWarning: { backgroundColor: '#765614' },
+  statusCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 16, marginTop: 18 },
+  statusCardWarning: { backgroundColor: colors.amberSoft, borderColor: colors.amberSoft },
   statusHeader: { flexDirection: 'row', alignItems: 'center' },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lime, marginRight: 7 },
-  statusDotWarning: { backgroundColor: '#FFE1A1' },
-  statusLabel: { color: colors.lime, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  statusLabelWarning: { color: '#FFE1A1' },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginRight: 7 },
+  statusDotWarning: { backgroundColor: colors.amber },
+  statusLabel: { color: colors.primary, fontSize: 11, fontWeight: '700' },
+  statusLabelWarning: { color: colors.amber },
   fillRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 12 },
-  fillValue: { color: colors.surface, fontSize: 34, fontWeight: '900', letterSpacing: -1 },
-  fillTarget: { color: '#DAE7DD', fontSize: 13, marginLeft: 8 },
-  progressTrack: { height: 7, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden', marginTop: 13 },
-  progressFill: { height: '100%', backgroundColor: colors.lime, borderRadius: 4 },
+  fillValue: { color: colors.ink, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  fillTarget: { color: colors.muted, fontSize: 13, marginLeft: 8 },
+  progressTrack: { height: 6, backgroundColor: colors.surfaceAlt, borderRadius: 3, overflow: 'hidden', marginTop: 12 },
+  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 3 },
   statusFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 11 },
-  statusFooterText: { color: '#D9E7DC', fontSize: 11, fontWeight: '700' },
+  statusFooterText: { color: colors.muted, fontSize: 11, fontWeight: '600' },
   metrics: { flexDirection: 'row', gap: 8, marginTop: 12 },
   sectionHeadingRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 31, marginBottom: 13 },
   sectionHeadingRowCompact: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-  sectionTitle: { color: colors.ink, fontSize: 23, fontWeight: '900', marginTop: 5 },
+  sectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+  sectionTitle: { color: colors.ink, fontSize: 23, fontWeight: '800', marginTop: 5 },
   sectionCount: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-  pipelineCard: { backgroundColor: colors.ink, borderRadius: 19, padding: 15, marginBottom: 12 },
+  pipelineCard: { backgroundColor: colors.ink, borderRadius: 12, padding: 15, marginBottom: 12 },
   pipelineBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rulesBadge: { color: colors.lime, backgroundColor: 'rgba(255,255,255,0.12)', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
-  mlBadge: { color: colors.ink, backgroundColor: colors.lime, fontSize: 8, fontWeight: '900', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
-  pipelineArrow: { color: '#8FA394', fontSize: 14, fontWeight: '900' },
+  rulesBadge: { color: colors.primarySoft, backgroundColor: 'rgba(255,255,255,0.12)', fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
+  mlBadge: { color: '#F5EFE2', backgroundColor: colors.primaryDark, fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
+  pipelineArrow: { color: '#8FA394', fontSize: 14, fontWeight: '800' },
   pipelineText: { color: '#C6D2C8', fontSize: 11, lineHeight: 16, marginTop: 10 },
-  comboCard: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginBottom: 10, borderWidth: 2, borderColor: 'transparent' },
-  comboCardSelected: { borderColor: colors.primary },
+  comboCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
+  comboCardSelected: { borderColor: colors.primary, borderWidth: 2 },
+  comboCardRecommended: { borderColor: colors.primary, borderWidth: 2 },
+  comboRecommended: { color: colors.primary, fontSize: 11, fontWeight: '800', marginBottom: 6 },
   comboTop: { flexDirection: 'row', alignItems: 'center' },
   comboRank: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   comboRankSelected: { backgroundColor: colors.primary },
-  comboRankText: { color: colors.muted, fontSize: 12, fontWeight: '900' },
-  comboRankTextSelected: { color: colors.lime },
+  comboRankText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
+  comboRankTextSelected: { color: colors.primaryDark },
   comboNameWrap: { flex: 1, paddingHorizontal: 10 },
-  comboFarms: { color: colors.ink, fontSize: 13, fontWeight: '900', lineHeight: 17 },
-  comboMeta: { color: colors.faint, fontSize: 10, marginTop: 3 },
+  comboFarms: { color: colors.ink, fontSize: 13, fontWeight: '800', lineHeight: 17 },
+  comboMeta: { color: colors.muted, fontSize: 12, marginTop: 3 },
   comboScoreWrap: { alignItems: 'center' },
-  comboScore: { color: colors.primary, fontSize: 22, fontWeight: '900' },
-  comboScoreLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.5, marginTop: 1 },
+  comboScore: { color: colors.primary, fontSize: 22, fontWeight: '800' },
+  comboScoreLabel: { color: colors.faint, fontSize: 10, fontWeight: '600', marginTop: 1 },
   comboScoreLabelSelected: { color: colors.primary },
   tapHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginBottom: 10, paddingHorizontal: 4 },
-  ceilingCard: { backgroundColor: colors.dangerSoft, borderRadius: 17, padding: 15, marginBottom: 12 },
+  ceilingCard: { backgroundColor: colors.dangerSoft, borderRadius: 12, padding: 15, marginBottom: 12 },
   ceilingText: { color: '#7A4A42', fontSize: 12, lineHeight: 18 },
   ceilingButton: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 11, marginTop: 11 },
-  ceilingButtonText: { color: colors.danger, fontSize: 13, fontWeight: '900' },
+  ceilingButtonText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
   ceilingRelaxed: { color: '#7A4A42', fontSize: 11, fontWeight: '700', marginTop: 10 },
   comboCardDisabled: { opacity: 0.75 },
   comboDeclined: { color: colors.danger, fontSize: 10, fontWeight: '700', marginTop: 4 },
-  comboOver: { color: colors.danger, fontSize: 15, fontWeight: '900' },
+  comboOver: { color: colors.danger, fontSize: 15, fontWeight: '800' },
   transparencyToggle: { alignItems: 'center', paddingVertical: 9 },
   transparencyToggleText: { color: colors.muted, fontSize: 11, fontWeight: '800' },
-  transparencyCard: { backgroundColor: colors.surface, borderRadius: 17, padding: 15, marginBottom: 8 },
-  transparencyHeading: { color: colors.ink, fontSize: 12, fontWeight: '900', marginTop: 11, marginBottom: 4 },
+  transparencyCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 15, marginBottom: 8 },
+  transparencyHeading: { color: colors.ink, fontSize: 12, fontWeight: '800', marginTop: 11, marginBottom: 4 },
   transparencyText: { color: colors.muted, fontSize: 11, lineHeight: 16 },
   transparencyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   transparencyLabel: { color: colors.muted, fontSize: 11 },
   transparencyValue: { color: colors.ink, fontSize: 11, fontWeight: '800' },
-  comboBars: { backgroundColor: colors.background, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, marginTop: 12, gap: 7 },
+  comboBars: { backgroundColor: colors.background, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginTop: 12, gap: 7 },
   scoreBarRow: { flexDirection: 'row', alignItems: 'center' },
   scoreBarLabel: { width: 62, color: colors.muted, fontSize: 9, fontWeight: '800' },
   scoreBarTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden', marginHorizontal: 7 },
   scoreBarFill: { height: '100%', borderRadius: 3, backgroundColor: colors.amber },
   scoreBarFillMl: { backgroundColor: colors.primary },
-  scoreBarValue: { width: 32, color: colors.ink, fontSize: 10, fontWeight: '900', textAlign: 'right' },
-  scoreBarTag: { width: 38, color: colors.amber, fontSize: 7, fontWeight: '900', textAlign: 'right', letterSpacing: 0.4 },
+  scoreBarValue: { width: 32, color: colors.ink, fontSize: 10, fontWeight: '800', textAlign: 'right' },
+  scoreBarTag: { width: 38, color: colors.amber, fontSize: 7, fontWeight: '800', textAlign: 'right', letterSpacing: 0.4 },
   scoreBarTagMl: { color: colors.primary },
   factorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 11 },
   factorChip: { color: colors.primaryDark, backgroundColor: colors.primarySoft, fontSize: 9, fontWeight: '800', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, overflow: 'hidden' },
   factorChipDown: { color: '#715112', backgroundColor: colors.amberSoft },
   comboWhy: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 9 },
   modelNote: { color: colors.faint, fontSize: 9, lineHeight: 14, marginTop: 4, marginBottom: 6, paddingHorizontal: 4 },
-  farmCard: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginBottom: 10 },
+  farmCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 10 },
   farmTop: { flexDirection: 'row', alignItems: 'center' },
   farmNumber: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
-  farmNumberText: { color: colors.primary, fontSize: 13, fontWeight: '900' },
+  farmNumberText: { color: colors.primary, fontSize: 13, fontWeight: '800' },
   farmNameWrap: { flex: 1, paddingHorizontal: 10 },
-  farmName: { color: colors.ink, fontSize: 14, fontWeight: '900' },
+  farmName: { color: colors.ink, fontSize: 14, fontWeight: '800' },
   farmLocation: { color: colors.faint, fontSize: 10, marginTop: 3 },
   scorePill: { backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
-  scoreText: { color: colors.primaryDark, fontSize: 10, fontWeight: '900' },
-  farmStats: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 14, paddingVertical: 11, marginTop: 13 },
+  scoreText: { color: colors.primaryDark, fontSize: 10, fontWeight: '800' },
+  farmStats: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 10, paddingVertical: 11, marginTop: 13 },
   farmStat: { flex: 1, alignItems: 'center', paddingHorizontal: 3 },
-  farmStatLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
-  farmStatValue: { color: colors.ink, fontSize: 12, fontWeight: '900', marginTop: 3 },
+  farmStatLabel: { color: colors.faint, fontSize: 7, fontWeight: '800', letterSpacing: 0.3, textAlign: 'center' },
+  farmStatValue: { color: colors.ink, fontSize: 12, fontWeight: '800', marginTop: 3 },
   verifyBadge: { alignSelf: 'flex-start', backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5 },
   verifyBadgePlain: { backgroundColor: colors.background },
   verifyBadgeText: { color: colors.primaryDark, fontSize: 9, fontWeight: '800' },
   verifyBadgeTextPlain: { color: colors.faint },
-  breakdownCard: { backgroundColor: colors.background, borderRadius: 14, padding: 12, marginTop: 12, gap: 7 },
+  breakdownCard: { backgroundColor: colors.background, borderRadius: 10, padding: 12, marginTop: 12, gap: 7 },
   breakdownRow: { flexDirection: 'row', alignItems: 'center' },
   breakdownLabel: { width: 88, color: colors.muted, fontSize: 10, fontWeight: '800' },
   breakdownTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden', marginHorizontal: 7 },
   breakdownFill: { height: '100%', borderRadius: 3, backgroundColor: colors.primary },
-  breakdownValue: { width: 36, color: colors.ink, fontSize: 10, fontWeight: '900', textAlign: 'right' },
+  breakdownValue: { width: 36, color: colors.ink, fontSize: 10, fontWeight: '800', textAlign: 'right' },
   breakdownPhoto: { flex: 1, color: colors.ink, fontSize: 10, fontWeight: '700', textAlign: 'right' },
   breakdownNote: { color: colors.faint, fontSize: 9, lineHeight: 13, marginTop: 3 },
-  farmPhoto: { width: '100%', height: 150, borderRadius: 14, marginTop: 12 },
+  farmPhoto: { width: '100%', height: 150, borderRadius: 10, marginTop: 12 },
   photoHeld: { color: colors.faint, fontSize: 10, lineHeight: 14, marginTop: 10 },
   farmFit: { color: colors.primary, fontSize: 10, lineHeight: 15, marginTop: 11, fontWeight: '700' },
-  chatButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, borderRadius: 13, paddingVertical: 11, marginTop: 12 },
-  chatButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: '900' },
-  chatButtonArrow: { color: colors.primaryDark, fontSize: 16, fontWeight: '900', marginLeft: 6, marginTop: -1 },
-  routeCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 20 },
-  cardTitle: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: 5 },
+  chatButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, borderRadius: 10, paddingVertical: 11, marginTop: 12 },
+  chatButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
+  chatButtonArrow: { color: colors.primaryDark, fontSize: 16, fontWeight: '800', marginLeft: 6, marginTop: -1 },
+  routeCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 18, marginTop: 20 },
+  cardTitle: { color: colors.ink, fontSize: 20, fontWeight: '800', marginTop: 5 },
   truckPill: { backgroundColor: colors.amberSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
-  truckText: { color: '#715112', fontSize: 10, fontWeight: '900' },
+  truckText: { color: '#715112', fontSize: 10, fontWeight: '800' },
   routeLine: { marginTop: 17, paddingLeft: 7 },
   routeStop: { flexDirection: 'row', minHeight: 51, borderLeftColor: colors.primarySoft, borderLeftWidth: 2, paddingLeft: 20, marginLeft: 5 },
   routeStopLast: { borderLeftColor: 'transparent', minHeight: 35 },
@@ -756,31 +781,31 @@ const styles = StyleSheet.create({
   routeCopy: { flex: 1, marginTop: -2 },
   routeName: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   routeDetail: { color: colors.faint, fontSize: 10, marginTop: 3 },
-  costCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 12 },
+  costCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 18, marginTop: 12 },
   costRow: { flexDirection: 'row', justifyContent: 'space-between', borderBottomColor: colors.border, borderBottomWidth: 1, paddingVertical: 11 },
   costLabel: { color: colors.muted, fontSize: 12 },
   costValue: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 17 },
-  totalLabel: { color: colors.faint, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
-  total: { color: colors.ink, fontSize: 25, fontWeight: '900', marginTop: 3 },
+  totalLabel: { color: colors.faint, fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+  total: { color: colors.ink, fontSize: 25, fontWeight: '800', marginTop: 3 },
   perKgBox: { alignItems: 'flex-end' },
-  perKg: { color: colors.primary, fontSize: 18, fontWeight: '900' },
+  perKg: { color: colors.primary, fontSize: 18, fontWeight: '800' },
   perKgTarget: { color: colors.faint, fontSize: 8, marginTop: 3 },
-  rejectedCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 12 },
+  rejectedCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 18, marginTop: 12 },
   noRejected: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 13 },
   rejectedRow: { flexDirection: 'row', marginTop: 14 },
   rejectMark: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.dangerSoft, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  rejectMarkText: { color: colors.danger, fontSize: 15, fontWeight: '900', marginTop: -2 },
+  rejectMarkText: { color: colors.danger, fontSize: 15, fontWeight: '800', marginTop: -2 },
   rejectedCopy: { flex: 1 },
-  rejectedName: { color: colors.ink, fontSize: 12, fontWeight: '900' },
+  rejectedName: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   rejectedReason: { color: colors.danger, fontSize: 10, lineHeight: 15, marginTop: 3 },
   reserveText: { color: colors.primary, fontSize: 10, fontWeight: '700', lineHeight: 15, marginTop: 15 },
-  assuranceCard: { backgroundColor: colors.amberSoft, borderRadius: 18, padding: 16, marginTop: 12 },
-  assuranceTitle: { color: '#715112', fontSize: 14, fontWeight: '900' },
+  assuranceCard: { backgroundColor: colors.amberSoft, borderRadius: 12, padding: 16, marginTop: 12 },
+  assuranceTitle: { color: '#715112', fontSize: 14, fontWeight: '800' },
   assuranceText: { color: '#735D2B', fontSize: 11, lineHeight: 17, marginTop: 5 },
-  primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 58, backgroundColor: colors.primary, borderRadius: 17, marginTop: 22, paddingHorizontal: 18 },
-  primaryButtonText: { color: colors.surface, fontSize: 16, fontWeight: '900' },
-  primaryButtonArrow: { position: 'absolute', right: 18, color: colors.lime, fontSize: 29 },
+  primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 58, backgroundColor: colors.primary, borderRadius: 12, marginTop: 22, paddingHorizontal: 18 },
+  primaryButtonText: { color: colors.surface, fontSize: 16, fontWeight: '800' },
+  primaryButtonArrow: { position: 'absolute', right: 18, color: '#F5EFE2', fontSize: 29 },
   disabledButton: { backgroundColor: colors.faint },
   secondaryButton: { alignItems: 'center', paddingVertical: 16 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '800' },

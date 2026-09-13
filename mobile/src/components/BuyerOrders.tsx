@@ -2,11 +2,12 @@ import { useRouter } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProduceThumb } from '@/components/ProduceThumb';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg, formatMoneyExact, formatPrice, lotCode } from '@/lib/format';
-import { colors } from '@/lib/theme';
+import { colors, statusTint } from '@/lib/theme';
 
-export default function DealScreen() {
+export function BuyerOrders() {
   const router = useRouter();
   const { plan, dealApproved, approveDeal, resetDemo, orderRequests, recordOutcome, fulfilmentLog } =
     useFarmPool();
@@ -23,11 +24,11 @@ export default function DealScreen() {
 
   if (!plan) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No pooled order yet</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace('/')}>
-            <Text style={styles.primaryButtonText}>Start at FarmPool</Text>
+          <Text style={styles.emptyTitle}>No open orders</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/buyer')}>
+            <Text style={styles.primaryButtonText}>Find produce</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -40,19 +41,16 @@ export default function DealScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.successIcon}>
-          <Text style={styles.successCheck}>✓</Text>
-        </View>
         <Text style={styles.eyebrow}>
           {!dealApproved
-            ? 'PLAN READY'
+            ? 'Plan ready'
             : allAccepted
-              ? 'ORDER CONFIRMED'
+              ? 'Confirmed'
               : anyDeclined
-                ? 'ACTION NEEDED'
-                : 'AWAITING SELLER CONFIRMATIONS'}
+                ? 'Action needed'
+                : 'Awaiting sellers'}
         </Text>
         <Text style={styles.title}>
           {!dealApproved
@@ -74,15 +72,41 @@ export default function DealScreen() {
               <Text style={styles.cardEyebrow}>ORDER SUMMARY</Text>
               <Text style={styles.orderName}>{plan.order.businessName}</Text>
             </View>
-            <View style={styles.approvedPill}>
-              <Text style={styles.approvedText}>
+            <View
+              style={[
+                styles.approvedPill,
+                {
+                  backgroundColor: (!dealApproved
+                    ? statusTint.Pending
+                    : allAccepted
+                      ? statusTint.Accepted
+                      : anyDeclined
+                        ? statusTint.Declined
+                        : statusTint.Pending
+                  ).bg,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.approvedText,
+                  {
+                    color: (!dealApproved
+                      ? statusTint.Pending
+                      : allAccepted
+                        ? statusTint.Accepted
+                        : anyDeclined
+                          ? statusTint.Declined
+                          : statusTint.Pending
+                    ).fg,
+                  },
+                ]}>
                 {!dealApproved
-                  ? 'PENDING'
+                  ? 'Pending'
                   : allAccepted
-                    ? 'CONFIRMED'
+                    ? 'Confirmed'
                     : anyDeclined
-                      ? 'ACTION NEEDED'
-                      : 'AWAITING SELLERS'}
+                      ? 'Action needed'
+                      : 'Awaiting sellers'}
               </Text>
             </View>
           </View>
@@ -107,9 +131,7 @@ export default function DealScreen() {
         <Text style={styles.sectionTitle}>Farmer commitments</Text>
         {plan.selected.map((lot, index) => (
           <View key={lot.harvest.id} style={styles.payoutCard}>
-            <View style={styles.payoutMark}>
-              <Text style={styles.payoutMarkText}>{lot.harvest.farmerName.slice(0, 1)}</Text>
-            </View>
+            <ProduceThumb harvest={lot.harvest} size={38} />
             <View style={styles.payoutCopy}>
               <View style={styles.payoutNameRow}>
                 <Text style={styles.payoutName}>{lot.harvest.farmerName}</Text>
@@ -317,79 +339,75 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 55 },
   empty: { flex: 1, justifyContent: 'center', padding: 24 },
-  emptyTitle: { color: colors.ink, fontSize: 28, fontWeight: '900', marginBottom: 20 },
-  successIcon: { width: 62, height: 62, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  successCheck: { color: colors.lime, fontSize: 30, fontWeight: '900' },
-  eyebrow: { color: colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1.3, marginTop: 22 },
-  title: { color: colors.ink, fontSize: 36, lineHeight: 41, letterSpacing: -1.1, fontWeight: '900', marginTop: 8 },
-  description: { color: colors.muted, fontSize: 15, lineHeight: 23, marginTop: 12 },
-  orderCard: { backgroundColor: colors.ink, borderRadius: 23, padding: 18, marginTop: 24 },
+  emptyTitle: { color: colors.ink, fontSize: 28, fontWeight: '800', marginBottom: 20 },
+  eyebrow: { color: colors.primary, fontSize: 12, fontWeight: '700', marginTop: 4 },
+  title: { color: colors.ink, fontSize: 22, lineHeight: 28, letterSpacing: -0.3, fontWeight: '800', marginTop: 6 },
+  description: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 6 },
+  orderCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 16, marginTop: 18 },
   orderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardEyebrow: { color: colors.lime, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
-  orderName: { color: colors.surface, fontSize: 17, fontWeight: '900', marginTop: 4, maxWidth: 220 },
-  approvedPill: { backgroundColor: colors.lime, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
-  approvedText: { color: colors.primaryDark, fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  cardEyebrow: { color: colors.faint, fontSize: 10, fontWeight: '700' },
+  orderName: { color: colors.ink, fontSize: 17, fontWeight: '800', marginTop: 4, maxWidth: 220 },
+  approvedPill: { borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4 },
+  approvedText: { fontSize: 11, fontWeight: '700' },
   orderStats: { flexDirection: 'row', alignItems: 'center', marginTop: 19 },
   orderStat: { flex: 1 },
-  orderStatValue: { color: colors.surface, fontSize: 14, fontWeight: '900' },
-  orderStatLabel: { color: '#AEBBAF', fontSize: 8, marginTop: 4 },
-  statDivider: { width: 1, height: 30, backgroundColor: '#3D4A40', marginHorizontal: 8 },
-  sectionTitle: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: 29, marginBottom: 12 },
-  payoutCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 17, padding: 14, marginBottom: 8 },
-  payoutMark: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  payoutMarkText: { color: colors.primary, fontSize: 14, fontWeight: '900' },
+  orderStatValue: { color: colors.ink, fontSize: 15, fontWeight: '800' },
+  orderStatLabel: { color: colors.faint, fontSize: 10, marginTop: 4 },
+  statDivider: { width: 1, height: 30, backgroundColor: colors.line, marginHorizontal: 8 },
+  sectionTitle: { color: colors.ink, fontSize: 20, fontWeight: '800', marginTop: 29, marginBottom: 12 },
+  payoutCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 8 },
   payoutCopy: { flex: 1, paddingHorizontal: 10 },
-  payoutName: { color: colors.ink, fontSize: 12, fontWeight: '900' },
-  payoutDetail: { color: colors.faint, fontSize: 9, marginTop: 3 },
+  payoutName: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  payoutDetail: { color: colors.muted, fontSize: 11, marginTop: 3 },
   payoutNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  sellerStatusPill: { backgroundColor: colors.amberSoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  sellerStatusPill: { backgroundColor: colors.amberSoft, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   sellerStatusAccepted: { backgroundColor: colors.primarySoft },
   sellerStatusDeclined: { backgroundColor: colors.dangerSoft },
-  sellerStatusText: { color: '#715112', fontSize: 8, fontWeight: '900' },
+  sellerStatusText: { color: colors.amber, fontSize: 10, fontWeight: '700' },
   sellerStatusTextAccepted: { color: colors.primaryDark },
   sellerStatusTextDeclined: { color: colors.danger },
-  switchHint: { backgroundColor: colors.amberSoft, borderRadius: 15, padding: 13, marginTop: 4, marginBottom: 8 },
+  switchHint: { backgroundColor: colors.amberSoft, borderRadius: 10, padding: 13, marginTop: 4, marginBottom: 8 },
   switchHintText: { color: '#715112', fontSize: 12, lineHeight: 18 },
-  declinedCard: { backgroundColor: colors.dangerSoft, borderRadius: 17, padding: 15, marginTop: 4, marginBottom: 8 },
-  declinedTitle: { color: colors.danger, fontSize: 14, fontWeight: '900' },
+  declinedCard: { backgroundColor: colors.dangerSoft, borderRadius: 12, padding: 15, marginTop: 4, marginBottom: 8 },
+  declinedTitle: { color: colors.danger, fontSize: 14, fontWeight: '800' },
   declinedText: { color: '#7A4A42', fontSize: 12, lineHeight: 18, marginTop: 5 },
   declinedButton: { alignItems: 'center', backgroundColor: colors.danger, borderRadius: 12, paddingVertical: 11, marginTop: 11 },
-  declinedButtonText: { color: colors.surface, fontSize: 13, fontWeight: '900' },
-  outcomeCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 4, marginBottom: 8 },
+  declinedButtonText: { color: colors.surface, fontSize: 13, fontWeight: '800' },
+  outcomeCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 18, marginTop: 4, marginBottom: 8 },
   outcomeActions: { flexDirection: 'row', gap: 9, marginTop: 12 },
-  outcomeGood: { flex: 1, alignItems: 'center', backgroundColor: colors.primary, borderRadius: 13, paddingVertical: 12 },
-  outcomeGoodText: { color: colors.surface, fontSize: 13, fontWeight: '900' },
-  outcomeBad: { flex: 1, alignItems: 'center', backgroundColor: colors.dangerSoft, borderRadius: 13, paddingVertical: 12 },
-  outcomeBadText: { color: colors.danger, fontSize: 13, fontWeight: '900' },
+  outcomeGood: { flex: 1, alignItems: 'center', backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 12 },
+  outcomeGoodText: { color: colors.surface, fontSize: 13, fontWeight: '800' },
+  outcomeBad: { flex: 1, alignItems: 'center', backgroundColor: colors.dangerSoft, borderRadius: 10, paddingVertical: 12 },
+  outcomeBadText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
   outcomeDone: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 8 },
   payoutLot: { color: colors.primary, fontSize: 9, fontWeight: '700', marginTop: 3 },
-  inspectionCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 4 },
-  inspectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
-  inspectionTitle: { color: colors.ink, fontSize: 16, fontWeight: '900', marginTop: 5, marginBottom: 8 },
+  inspectionCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 18, marginTop: 4 },
+  inspectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
+  inspectionTitle: { color: colors.ink, fontSize: 16, fontWeight: '800', marginTop: 5, marginBottom: 8 },
   inspectionRow: { flexDirection: 'row', justifyContent: 'space-between', borderBottomColor: colors.border, borderBottomWidth: 1, paddingVertical: 9 },
   inspectionLot: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   inspectionStatus: { color: colors.amber, fontSize: 11, fontWeight: '800' },
   inspectionText: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 11 },
   disputeText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
   payoutValueWrap: { alignItems: 'flex-end' },
-  payoutValue: { color: colors.primary, fontSize: 13, fontWeight: '900' },
+  payoutValue: { color: colors.primary, fontSize: 13, fontWeight: '800' },
   payoutLabel: { color: colors.faint, fontSize: 8, marginTop: 3 },
-  timelineCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18 },
+  timelineCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 18 },
   timelineStep: { flexDirection: 'row', minHeight: 93, borderLeftColor: colors.primarySoft, borderLeftWidth: 2, marginLeft: 13, paddingLeft: 28 },
   timelineStepLast: { borderLeftColor: 'transparent', minHeight: 72 },
-  timelineNumber: { position: 'absolute', left: -16, top: 0, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.primary, borderColor: colors.surface, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
-  timelineNumberText: { color: colors.surface, fontSize: 10, fontWeight: '900' },
+  timelineNumber: { position: 'absolute', left: -16, top: 0, width: 30, height: 30, borderRadius: 10, backgroundColor: colors.primary, borderColor: colors.surface, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  timelineNumberText: { color: colors.surface, fontSize: 10, fontWeight: '800' },
   timelineCopy: { flex: 1, paddingTop: 2 },
   timelineTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  timelineTitle: { color: colors.ink, fontSize: 13, fontWeight: '900' },
-  timelineState: { color: colors.primary, backgroundColor: colors.primarySoft, fontSize: 7, fontWeight: '900', letterSpacing: 0.6, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 5 },
+  timelineTitle: { color: colors.ink, fontSize: 13, fontWeight: '800' },
+  timelineState: { color: colors.primary, backgroundColor: colors.primarySoft, fontSize: 7, fontWeight: '800', letterSpacing: 0.6, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 5 },
   timelineText: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 6 },
-  impactCard: { backgroundColor: colors.primarySoft, borderRadius: 21, padding: 18, marginTop: 14 },
-  impactEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
-  impactTitle: { color: colors.primaryDark, fontSize: 19, lineHeight: 24, fontWeight: '900', marginTop: 6 },
+  impactCard: { backgroundColor: colors.primarySoft, borderRadius: 12, padding: 18, marginTop: 14 },
+  impactEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
+  impactTitle: { color: colors.primaryDark, fontSize: 19, lineHeight: 24, fontWeight: '800', marginTop: 6 },
   impactText: { color: '#506956', fontSize: 12, lineHeight: 18, marginTop: 7 },
-  primaryButton: { alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 17, marginTop: 22, paddingHorizontal: 17 },
-  primaryButtonText: { color: colors.surface, fontSize: 15, fontWeight: '900' },
+  primaryButton: { alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 12, marginTop: 22, paddingHorizontal: 17 },
+  primaryButtonText: { color: colors.surface, fontSize: 15, fontWeight: '800' },
   secondaryButton: { alignItems: 'center', paddingVertical: 16 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '800' },
 });

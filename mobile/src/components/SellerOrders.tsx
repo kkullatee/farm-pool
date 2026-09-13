@@ -6,16 +6,16 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { SelectField } from '@/components/SelectField';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg, formatMoneyExact } from '@/lib/format';
-import { colors } from '@/lib/theme';
+import { colors, statusTint } from '@/lib/theme';
 import { SellerResponse } from '@/lib/types';
 
 const STATUS_STYLE: Record<SellerResponse, { bg: string; fg: string }> = {
-  Pending: { bg: '#FFF1CF', fg: '#715112' },
-  Accepted: { bg: '#DCEBD8', fg: '#164D2B' },
-  Declined: { bg: '#FBE3DE', fg: '#B44A3E' },
+  Pending: statusTint.Pending,
+  Accepted: statusTint.Accepted,
+  Declined: statusTint.Declined,
 };
 
-export default function SellerOrdersScreen() {
+export function SellerOrders() {
   const router = useRouter();
   const { orderRequests, respondToRequest, harvests, activeSellerFarm, setActiveSellerFarm } =
     useFarmPool();
@@ -29,10 +29,10 @@ export default function SellerOrdersScreen() {
   ).length;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <ScreenHeader
-          eyebrow="SELLER MODE"
+          showBack={false}
           title="Order requests"
           description={
             activeSellerFarm
@@ -72,9 +72,6 @@ export default function SellerOrdersScreen() {
             <Text style={styles.emptyText}>
               Requests appear here when a buyer approves a pooled order with this farm in it.
             </Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace('/')}>
-              <Text style={styles.primaryButtonText}>Back to FarmPool</Text>
-            </TouchableOpacity>
           </View>
         ) : (
           myRequests.map((request) => {
@@ -157,29 +154,29 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 55 },
   otherPendingNote: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -8, marginBottom: 4 },
   empty: { alignItems: 'center', paddingVertical: 40 },
-  emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '900' },
+  emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '800' },
   emptyText: { color: colors.muted, fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 },
-  primaryButton: { alignItems: 'center', justifyContent: 'center', minHeight: 50, backgroundColor: colors.primary, borderRadius: 15, paddingHorizontal: 22, marginTop: 18 },
-  primaryButtonText: { color: colors.surface, fontSize: 14, fontWeight: '900' },
-  card: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginTop: 12 },
+  primaryButton: { alignItems: 'center', justifyContent: 'center', minHeight: 50, backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 22, marginTop: 18 },
+  primaryButtonText: { color: colors.surface, fontSize: 14, fontWeight: '800' },
+  card: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginTop: 12 },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start' },
   cardCopy: { flex: 1, paddingRight: 10 },
-  actingAs: { color: colors.primary, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
-  buyerName: { color: colors.ink, fontSize: 16, fontWeight: '900', marginTop: 4 },
+  actingAs: { color: colors.primary, fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+  buyerName: { color: colors.ink, fontSize: 16, fontWeight: '800', marginTop: 4 },
   lotLine: { color: colors.muted, fontSize: 12, marginTop: 3 },
   statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  statusText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  statsRow: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 14, paddingVertical: 11, marginTop: 13 },
+  statusText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  statsRow: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 10, paddingVertical: 11, marginTop: 13 },
   stat: { flex: 1, alignItems: 'center' },
-  statLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.4 },
-  statValue: { color: colors.ink, fontSize: 12, fontWeight: '900', marginTop: 3 },
+  statLabel: { color: colors.faint, fontSize: 7, fontWeight: '800', letterSpacing: 0.4 },
+  statValue: { color: colors.ink, fontSize: 12, fontWeight: '800', marginTop: 3 },
   deliveryLine: { color: colors.primary, fontSize: 11, fontWeight: '700', marginTop: 11 },
   actions: { flexDirection: 'row', gap: 9, marginTop: 12 },
-  acceptButton: { flex: 1, alignItems: 'center', backgroundColor: colors.primary, borderRadius: 13, paddingVertical: 13 },
-  acceptText: { color: colors.surface, fontSize: 14, fontWeight: '900' },
-  declineButton: { flex: 1, alignItems: 'center', backgroundColor: colors.dangerSoft, borderRadius: 13, paddingVertical: 13 },
-  declineText: { color: colors.danger, fontSize: 14, fontWeight: '900' },
+  acceptButton: { flex: 1, alignItems: 'center', backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 13 },
+  acceptText: { color: colors.surface, fontSize: 14, fontWeight: '800' },
+  declineButton: { flex: 1, alignItems: 'center', backgroundColor: colors.dangerSoft, borderRadius: 10, paddingVertical: 13 },
+  declineText: { color: colors.danger, fontSize: 14, fontWeight: '800' },
   answered: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 12 },
-  chatButton: { alignItems: 'center', backgroundColor: colors.primarySoft, borderRadius: 13, paddingVertical: 11, marginTop: 10 },
-  chatButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: '900' },
+  chatButton: { alignItems: 'center', backgroundColor: colors.primarySoft, borderRadius: 10, paddingVertical: 11, marginTop: 10 },
+  chatButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
 });

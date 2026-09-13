@@ -2,20 +2,21 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProduceThumb } from '@/components/ProduceThumb';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { farmLabel, formatKg, formatPrice } from '@/lib/format';
-import { colors } from '@/lib/theme';
+import { colors, statusTint } from '@/lib/theme';
 import { Harvest } from '@/lib/types';
 
 function listingStatus(harvest: Harvest): { text: string; bg: string; fg: string } {
   if (harvest.needsReview) {
-    return { text: 'Catalog review', bg: '#FFF1CF', fg: '#715112' };
+    return { text: 'Catalog review', bg: statusTint.Pending.bg, fg: statusTint.Pending.fg };
   }
   if (harvest.assessment.photoStatus === 'Retake required') {
     return { text: 'Photo retake needed', bg: colors.dangerSoft, fg: colors.danger };
   }
-  return { text: 'Listed', bg: '#DCEBD8', fg: '#164D2B' };
+  return { text: 'Listed', bg: statusTint.Accepted.bg, fg: statusTint.Accepted.fg };
 }
 
 export default function MyListingsScreen() {
@@ -29,14 +30,13 @@ export default function MyListingsScreen() {
       : harvests;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <ScreenHeader
-          eyebrow={role === 'seller' ? 'SELLER MODE' : 'ALL FARMS'}
           title={role === 'seller' && activeSellerFarm ? `${activeSellerFarm} listings` : 'Listings'}
           description={
             role === 'seller' && !activeSellerFarm
-              ? 'Pick a demo seller on the order requests screen to filter to one farm.'
+              ? 'Pick a demo seller in Account to filter to one farm.'
               : `${visible.length} lot${visible.length === 1 ? '' : 's'} currently on the market.`
           }
         />
@@ -55,6 +55,7 @@ export default function MyListingsScreen() {
             return (
               <View key={harvest.id} style={styles.card}>
                 <View style={styles.cardTop}>
+                  <ProduceThumb harvest={harvest} size={44} />
                   <View style={styles.cardCopy}>
                     <Text style={styles.farmName}>{farmLabel(harvest, harvests)}</Text>
                     <Text style={styles.cropLine}>
@@ -103,20 +104,20 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 55 },
   empty: { alignItems: 'center', paddingVertical: 40 },
-  emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '900' },
+  emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '800' },
   emptyText: { color: colors.muted, fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 8 },
-  primaryButton: { alignItems: 'center', justifyContent: 'center', minHeight: 50, backgroundColor: colors.primary, borderRadius: 15, paddingHorizontal: 22, marginTop: 18 },
-  primaryButtonText: { color: colors.surface, fontSize: 14, fontWeight: '900' },
-  card: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginTop: 12 },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start' },
+  primaryButton: { alignItems: 'center', justifyContent: 'center', minHeight: 50, backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 22, marginTop: 18 },
+  primaryButtonText: { color: colors.surface, fontSize: 14, fontWeight: '800' },
+  card: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginTop: 12 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   cardCopy: { flex: 1, paddingRight: 10 },
-  farmName: { color: colors.ink, fontSize: 16, fontWeight: '900' },
+  farmName: { color: colors.ink, fontSize: 16, fontWeight: '800' },
   cropLine: { color: colors.muted, fontSize: 12, marginTop: 3 },
   statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  statusText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  statsRow: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 14, paddingVertical: 11, marginTop: 13 },
+  statusText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  statsRow: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 10, paddingVertical: 11, marginTop: 13 },
   stat: { flex: 1, alignItems: 'center' },
-  statLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.4 },
-  statValue: { color: colors.ink, fontSize: 12, fontWeight: '900', marginTop: 3 },
+  statLabel: { color: colors.faint, fontSize: 7, fontWeight: '800', letterSpacing: 0.4 },
+  statValue: { color: colors.ink, fontSize: 12, fontWeight: '800', marginTop: 3 },
   metaLine: { color: colors.faint, fontSize: 11, lineHeight: 16, marginTop: 11 },
 });

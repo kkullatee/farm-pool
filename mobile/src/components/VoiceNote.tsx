@@ -41,7 +41,7 @@ export function VoiceNote({ value, onChange }: Props) {
     <View style={styles.card}>
       <View style={styles.copy}>
         <Text style={styles.title}>
-          {state.isRecording ? `Recording ${seconds}s` : 'Describe your harvest by voice'}
+          {state.isRecording ? `Recording ${seconds}s` : 'Describe your harvest'}
         </Text>
         <Text style={styles.description}>
           {value

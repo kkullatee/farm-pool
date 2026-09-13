@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 17,
+    borderRadius: 12,
     padding: 14,
   },
   green: {
@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   value: {
     color: colors.ink,
     fontSize: 21,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   label: {
     color: colors.muted,

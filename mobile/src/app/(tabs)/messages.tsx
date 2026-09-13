@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProduceThumb } from '@/components/ProduceThumb';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { farmLabel } from '@/lib/format';
@@ -33,17 +34,17 @@ export default function MessagesScreen() {
     });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <ScreenHeader
-          eyebrow={role === 'buyer' ? 'BUYER MODE' : 'SELLER MODE'}
+          showBack={false}
           title="Messages"
           description={
             role === 'buyer'
               ? 'Your conversations with sellers, one per lot.'
               : activeSellerFarm
                 ? `Conversations for ${activeSellerFarm}.`
-                : 'Pick a demo seller on the order requests screen to see that farm’s messages.'
+                : 'Pick a demo seller in Account to see that farm’s messages.'
           }
         />
 
@@ -69,9 +70,7 @@ export default function MessagesScreen() {
                 onPress={() =>
                   router.push({ pathname: '/chat', params: { harvestId: harvest.id } })
                 }>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{counterpart.slice(0, 1)}</Text>
-                </View>
+                <ProduceThumb harvest={harvest} size={44} />
                 <View style={styles.cardCopy}>
                   <Text style={styles.name}>{counterpart}</Text>
                   <Text style={styles.lotLine}>
@@ -96,13 +95,13 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 55 },
   empty: { alignItems: 'center', paddingVertical: 40 },
-  emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '900' },
+  emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '800' },
   emptyText: { color: colors.muted, fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 20, padding: 14, marginTop: 12 },
-  avatar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: colors.primarySoft },
-  avatarText: { color: colors.primaryDark, fontSize: 17, fontWeight: '900' },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginTop: 12 },
+  avatar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.primarySoft },
+  avatarText: { color: colors.primaryDark, fontSize: 17, fontWeight: '800' },
   cardCopy: { flex: 1, paddingHorizontal: 12 },
-  name: { color: colors.ink, fontSize: 15, fontWeight: '900' },
+  name: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   lotLine: { color: colors.faint, fontSize: 10, marginTop: 2 },
   preview: { color: colors.muted, fontSize: 12, marginTop: 4 },
   arrow: { color: colors.primary, fontSize: 26 },
