@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -80,6 +81,10 @@ export default function ChatScreen() {
             </Text>
           </View>
 
+          {harvest.imageUri && harvest.assessment.photoStatus === 'Accepted' ? (
+            <Image source={{ uri: harvest.imageUri }} style={styles.lotPhoto} />
+          ) : null}
+
           {messages.map((message) => (
             <View
               key={message.id}
@@ -155,6 +160,7 @@ const styles = StyleSheet.create({
   threadContent: { padding: 16, paddingBottom: 10 },
   noticeCard: { backgroundColor: colors.primarySoft, borderRadius: 15, padding: 13, marginBottom: 14 },
   noticeText: { color: '#47684F', fontSize: 12, lineHeight: 18 },
+  lotPhoto: { width: '100%', height: 160, borderRadius: 15, marginBottom: 14 },
   bubble: { maxWidth: '82%', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10, marginBottom: 8 },
   buyerBubble: { alignSelf: 'flex-end', backgroundColor: colors.primary, borderBottomRightRadius: 5 },
   sellerBubble: { alignSelf: 'flex-start', backgroundColor: colors.surface, borderBottomLeftRadius: 5 },

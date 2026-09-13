@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MetricCard } from '@/components/MetricCard';
@@ -7,13 +8,22 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
 import { colors } from '@/lib/theme';
-import { ConditionGrade, RankedCombination } from '@/lib/types';
+import { ConditionGrade, MatchBreakdown, RankedCombination } from '@/lib/types';
 
 const conditionRank: Record<ConditionGrade, number> = { Economy: 1, Standard: 2, Premium: 3 };
+
+const BREAKDOWN_LABELS: { key: keyof MatchBreakdown; label: string }[] = [
+  { key: 'condition', label: 'Condition' },
+  { key: 'timing', label: 'Harvest timing' },
+  { key: 'distance', label: 'Distance' },
+  { key: 'price', label: 'Price' },
+  { key: 'reliability', label: 'Reliability' },
+];
 
 export default function MatchesScreen() {
   const router = useRouter();
   const { plan, runDemo, approveDeal, chooseCombination } = useFarmPool();
+  const [expandedLotId, setExpandedLotId] = useState<string | null>(null);
 
   function createDemoPlan() {
     runDemo();
@@ -170,10 +180,53 @@ export default function MatchesScreen() {
                 <Text style={styles.farmName}>{lot.harvest.farmerName}</Text>
                 <Text style={styles.farmLocation}>{lot.harvest.location} · {lot.distanceKm} km away</Text>
               </View>
-              <View style={styles.scorePill}>
-                <Text style={styles.scoreText}>{lot.score}%</Text>
-              </View>
+              <TouchableOpacity
+                style={styles.scorePill}
+                onPress={() =>
+                  setExpandedLotId(expandedLotId === lot.harvest.id ? null : lot.harvest.id)
+                }>
+                <Text style={styles.scoreText}>
+                  {lot.score}% match {expandedLotId === lot.harvest.id ? '▴' : '▾'}
+                </Text>
+              </TouchableOpacity>
             </View>
+
+            {expandedLotId === lot.harvest.id ? (
+              <View style={styles.breakdownCard}>
+                {BREAKDOWN_LABELS.map(({ key, label }) => (
+                  <View key={key} style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>{label}</Text>
+                    <View style={styles.breakdownTrack}>
+                      <View
+                        style={[styles.breakdownFill, { width: `${lot.breakdown[key]}%` }]}
+                      />
+                    </View>
+                    <Text style={styles.breakdownValue}>{lot.breakdown[key]}%</Text>
+                  </View>
+                ))}
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Photo</Text>
+                  <Text style={styles.breakdownPhoto}>
+                    {lot.harvest.assessment.photoStatus === 'Accepted'
+                      ? 'AI checked'
+                      : lot.harvest.imageUri
+                        ? 'Held until checked'
+                        : 'None provided'}
+                  </Text>
+                </View>
+                <Text style={styles.breakdownNote}>
+                  Rules-based score for this farm. The pool ranking above uses the ML model.
+                </Text>
+              </View>
+            ) : null}
+
+            {lot.harvest.imageUri && lot.harvest.assessment.photoStatus === 'Accepted' ? (
+              <Image source={{ uri: lot.harvest.imageUri }} style={styles.farmPhoto} />
+            ) : lot.harvest.imageUri ? (
+              <Text style={styles.photoHeld}>
+                Seller added a photo. It shows here once it passes the photo check.
+              </Text>
+            ) : null}
             <View style={styles.farmStats}>
               <View style={styles.farmStat}>
                 <Text style={styles.farmStatLabel} numberOfLines={1}>ALLOCATED</Text>
@@ -466,6 +519,16 @@ const styles = StyleSheet.create({
   farmStat: { flex: 1, alignItems: 'center', paddingHorizontal: 3 },
   farmStatLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
   farmStatValue: { color: colors.ink, fontSize: 12, fontWeight: '900', marginTop: 3 },
+  breakdownCard: { backgroundColor: colors.background, borderRadius: 14, padding: 12, marginTop: 12, gap: 7 },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center' },
+  breakdownLabel: { width: 88, color: colors.muted, fontSize: 10, fontWeight: '800' },
+  breakdownTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden', marginHorizontal: 7 },
+  breakdownFill: { height: '100%', borderRadius: 3, backgroundColor: colors.primary },
+  breakdownValue: { width: 36, color: colors.ink, fontSize: 10, fontWeight: '900', textAlign: 'right' },
+  breakdownPhoto: { flex: 1, color: colors.ink, fontSize: 10, fontWeight: '700', textAlign: 'right' },
+  breakdownNote: { color: colors.faint, fontSize: 9, lineHeight: 13, marginTop: 3 },
+  farmPhoto: { width: '100%', height: 150, borderRadius: 14, marginTop: 12 },
+  photoHeld: { color: colors.faint, fontSize: 10, lineHeight: 14, marginTop: 10 },
   farmFit: { color: colors.primary, fontSize: 10, lineHeight: 15, marginTop: 11, fontWeight: '700' },
   chatButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, borderRadius: 13, paddingVertical: 11, marginTop: 12 },
   chatButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: '900' },

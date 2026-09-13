@@ -100,10 +100,21 @@ export type BuyerOrder = {
   minimumCondition: MinimumCondition;
 };
 
+/** Rules-based parts of a farm's match score, each 0-100. */
+export type MatchBreakdown = {
+  condition: number;
+  timing: number;
+  distance: number;
+  price: number;
+  reliability: number;
+};
+
 export type FarmEvaluation = {
   harvest: Harvest;
   eligible: boolean;
+  /** Rules-based match score 0-100, the weighted blend of `breakdown`. */
   score: number;
+  breakdown: MatchBreakdown;
   distanceKm: number;
   reasons: string[];
 };

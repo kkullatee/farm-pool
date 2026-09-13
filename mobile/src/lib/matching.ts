@@ -1,3 +1,5 @@
+import { cropInfo } from '@/data/crops';
+
 import { allocate, generateCombinations } from './candidates';
 import { rankCombination, rankingModelInfo } from './ranking';
 import {
@@ -5,6 +7,7 @@ import {
   CostBreakdown,
   FarmEvaluation,
   Harvest,
+  MatchBreakdown,
   MatchPlan,
   RankedCombination,
   SelectedLot,
@@ -66,14 +69,41 @@ export function evaluateHarvest(harvest: Harvest, order: BuyerOrder): FarmEvalua
     reasons.push('Harvest is not ready before delivery');
   }
 
-  const conditionScore = { Economy: 66, Standard: 79, Premium: 92 }[harvest.condition];
-  const distanceScore = Math.max(0, 100 - distance / 5);
-  const score = conditionScore * 0.45 + harvest.reliability * 0.35 + distanceScore * 0.2;
+  // Rules-based match score, split into named parts so the buyer can see
+  // exactly why a farm scores the way it does. All parts are 0-100.
+  const bufferDays = Math.floor(
+    (Date.parse(order.deliveryDate) - Date.parse(harvest.harvestDate)) / (24 * 60 * 60 * 1000),
+  );
+  const band = cropInfo(harvest.crop)?.typicalPricePerKg;
+  const breakdown: MatchBreakdown = {
+    condition: { Economy: 60, Standard: 80, Premium: 95 }[harvest.condition],
+    timing: bufferDays >= 3 ? 100 : bufferDays >= 1 ? 85 : 70,
+    distance: Math.round(Math.max(0, 100 - distance / 5)),
+    price: band
+      ? Math.round(
+          Math.min(
+            100,
+            Math.max(
+              60,
+              100 - ((harvest.minimumPricePerKg - band[0]) / (band[1] - band[0])) * 40,
+            ),
+          ),
+        )
+      : 80,
+    reliability: harvest.reliability,
+  };
+  const score =
+    breakdown.condition * 0.3 +
+    breakdown.timing * 0.2 +
+    breakdown.distance * 0.2 +
+    breakdown.price * 0.15 +
+    breakdown.reliability * 0.15;
 
   return {
     harvest,
     eligible: reasons.length === 0,
     score: Math.round(score),
+    breakdown,
     distanceKm: Math.round(distance),
     reasons,
   };
