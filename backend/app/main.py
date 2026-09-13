@@ -250,13 +250,21 @@ def extract_listing(transcript: str) -> tuple[VoiceExtraction | None, str]:
     if not os.getenv("ANTHROPIC_API_KEY"):
         return None, "unavailable"
     try:
+        from datetime import date
+
         from anthropic import Anthropic
 
+        today = date.today().isoformat()
         client = Anthropic()
         response = client.messages.parse(
             model="claude-opus-4-8",
             max_tokens=2048,
-            system=VOICE_EXTRACTION_SYSTEM,
+            system=(
+                f"{VOICE_EXTRACTION_SYSTEM}\n"
+                f"- Today is {today}. Convert relative dates like 'next Friday' or "
+                "'in two weeks' into YYYY-MM-DD, and add harvest_date to uncertain "
+                "when you converted a relative date."
+            ),
             messages=[{"role": "user", "content": transcript}],
             output_format=VoiceExtraction,
         )

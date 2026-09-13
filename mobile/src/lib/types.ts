@@ -61,6 +61,8 @@ export type QualityAssessment = {
   /** Photo screening result. Anything except Accepted is never shown to buyers. */
   photoStatus?: PhotoStatus;
   photoChecks?: string[];
+  /** How this assessment was produced. Set client-side, never faked. */
+  aiStatus?: 'live' | 'demo-fallback' | 'backend-unreachable' | 'vision-unavailable';
 };
 
 /** Listing fields extracted from a spoken harvest description. */
@@ -78,11 +80,22 @@ export type VoiceExtraction = {
   missing: string[];
 };
 
+/** Exactly what happened on a voice autofill attempt. Never ambiguous. */
+export type VoiceStatus =
+  | 'live'
+  | 'demo'
+  | 'backend-unreachable'
+  | 'stt-failed'
+  | 'extraction-failed';
+
 export type VoiceListing = {
+  status: VoiceStatus;
   transcript: string | null;
   extraction: VoiceExtraction | null;
   transcriptSource: 'elevenlabs' | 'openai' | 'demo' | 'unavailable';
   extractionSource: 'claude' | 'demo' | 'unavailable';
+  /** Plain-language detail for the UI, e.g. which part failed and why. */
+  note: string;
 };
 
 export type Harvest = {
@@ -206,6 +219,17 @@ export type RankingModelInfo = {
   dataSource: string;
 };
 
+/** A completed order outcome, stored in the training-data schema so real
+ * marketplace history can replace the synthetic bootstrap data. */
+export type FulfilmentRecord = {
+  orderId: string;
+  /** The winning combination's model features at approval time. */
+  features: Record<string, number>;
+  fulfilled: boolean;
+  onTime: boolean;
+  sellerDropout: boolean;
+};
+
 export type MatchPlan = {
   order: BuyerOrder;
   selected: SelectedLot[];
@@ -218,6 +242,9 @@ export type MatchPlan = {
   withinBudget: boolean;
   /** Top feasible combinations ordered by the hybrid ranking score. */
   rankedCombinations: RankedCombination[];
+  /** False when no pool meets the buyer's price ceiling; the list then holds
+   * closest alternatives, not recommendations. */
+  withinPriceCeiling: boolean;
   /** Combination the plan is built from — the AI pick unless the buyer chose another. */
   selectedCombinationId: string | null;
   /** Metadata of the ML ranking model, for transparency in the UI. */

@@ -8,6 +8,7 @@ import {
   BuyerOrder,
   ChatMessage,
   DemoRole,
+  FulfilmentRecord,
   Harvest,
   MatchPlan,
   OrderRequest,
@@ -22,6 +23,8 @@ type StoredState = {
   chats?: Record<string, ChatMessage[]>;
   role?: DemoRole;
   orderRequests?: OrderRequest[];
+  activeSellerFarm?: string | null;
+  fulfilmentLog?: FulfilmentRecord[];
 };
 
 type ContextValue = {
@@ -34,8 +37,13 @@ type ContextValue = {
   chats: Record<string, ChatMessage[]>;
   role: DemoRole;
   orderRequests: OrderRequest[];
+  /** Which demo farm the device is acting as while in seller mode. */
+  activeSellerFarm: string | null;
+  fulfilmentLog: FulfilmentRecord[];
   setRole: (role: DemoRole) => void;
+  setActiveSellerFarm: (farm: string | null) => void;
   respondToRequest: (requestId: string, status: Exclude<SellerResponse, 'Pending'>) => void;
+  recordOutcome: (outcome: { fulfilled: boolean; onTime: boolean; sellerDropout: boolean }) => void;
   registerHarvest: (harvest: Omit<Harvest, 'id'>) => Harvest;
   createOrderAndMatch: (order: BuyerOrder) => MatchPlan;
   chooseCombination: (combinationId: string) => void;
@@ -45,8 +53,8 @@ type ContextValue = {
   resetDemo: () => void;
 };
 
-// v5: demo role switch and per-seller order requests.
-const STORAGE_KEY = 'farmpool-state-v5';
+// v6: scoped seller identity, fulfilment outcome log.
+const STORAGE_KEY = 'farmpool-state-v6';
 const FarmPoolContext = createContext<ContextValue | null>(null);
 
 export function FarmPoolProvider({ children }: PropsWithChildren) {
@@ -57,6 +65,8 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
   const [chosenCombinationId, setChosenCombinationId] = useState<string | null>(null);
   const [chats, setChats] = useState<Record<string, ChatMessage[]>>({});
   const [role, setRole] = useState<DemoRole>('buyer');
+  const [activeSellerFarm, setActiveSellerFarm] = useState<string | null>(null);
+  const [fulfilmentLog, setFulfilmentLog] = useState<FulfilmentRecord[]>([]);
   const [orderRequests, setOrderRequests] = useState<OrderRequest[]>([]);
   const [dealApproved, setDealApproved] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -74,6 +84,8 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
           setChosenCombinationId(stored.chosenCombinationId ?? null);
           setChats(stored.chats ?? {});
           setRole(stored.role ?? 'buyer');
+          setActiveSellerFarm(stored.activeSellerFarm ?? null);
+          setFulfilmentLog(stored.fulfilmentLog ?? []);
           setOrderRequests(stored.orderRequests ?? []);
           if (stored.order) {
             setPlan(
@@ -101,9 +113,22 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
       chats,
       role,
       orderRequests,
+      activeSellerFarm,
+      fulfilmentLog,
     };
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-  }, [customHarvests, order, dealApproved, chosenCombinationId, chats, role, orderRequests, hydrated]);
+  }, [
+    customHarvests,
+    order,
+    dealApproved,
+    chosenCombinationId,
+    chats,
+    role,
+    orderRequests,
+    activeSellerFarm,
+    fulfilmentLog,
+    hydrated,
+  ]);
 
   function registerHarvest(input: Omit<Harvest, 'id'>) {
     const harvest: Harvest = {
@@ -183,6 +208,20 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
     );
   }
 
+  function recordOutcome(outcome: { fulfilled: boolean; onTime: boolean; sellerDropout: boolean }) {
+    // One record per order, in the same feature schema as the training data,
+    // so completed marketplace orders become future real training rows.
+    if (!plan || !order) return;
+    const winner = plan.rankedCombinations.find(
+      (combination) => combination.id === plan.selectedCombinationId,
+    );
+    if (!winner) return;
+    setFulfilmentLog((current) => [
+      ...current.filter((record) => record.orderId !== order.id),
+      { orderId: order.id, features: winner.features, ...outcome },
+    ]);
+  }
+
   function resetDemo() {
     setCustomHarvests([]);
     setLastHarvest(null);
@@ -192,6 +231,8 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
     setChats({});
     setOrderRequests([]);
     setRole('buyer');
+    setActiveSellerFarm(null);
+    setFulfilmentLog([]);
     setDealApproved(false);
     void AsyncStorage.removeItem(STORAGE_KEY);
   }
@@ -208,8 +249,12 @@ export function FarmPoolProvider({ children }: PropsWithChildren) {
         chats,
         role,
         orderRequests,
+        activeSellerFarm,
+        fulfilmentLog,
         setRole,
+        setActiveSellerFarm,
         respondToRequest,
+        recordOutcome,
         registerHarvest,
         createOrderAndMatch,
         chooseCombination,

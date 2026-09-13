@@ -36,7 +36,7 @@ const SELLER_PROMPTS = [
 export default function ChatScreen() {
   const router = useRouter();
   const { harvestId } = useLocalSearchParams<{ harvestId: string }>();
-  const { harvests, chats, sendChatMessage, role, order } = useFarmPool();
+  const { harvests, chats, sendChatMessage, role, order, activeSellerFarm } = useFarmPool();
   const [draft, setDraft] = useState('');
 
   const harvest = harvests.find((entry) => entry.id === harvestId);
@@ -55,7 +55,11 @@ export default function ChatScreen() {
     );
   }
 
+  // In seller mode you may only speak for the farm you are demoing as.
+  const wrongSeller = role === 'seller' && activeSellerFarm !== harvest.farmerName;
+
   function send(text: string) {
+    if (wrongSeller) return;
     sendChatMessage(harvest!.id, text);
     setDraft('');
   }
@@ -82,8 +86,12 @@ export default function ChatScreen() {
         </View>
 
         {role === 'seller' ? (
-          <View style={styles.roleBanner}>
-            <Text style={styles.roleBannerText}>You are replying as {harvest.farmerName}</Text>
+          <View style={[styles.roleBanner, wrongSeller && styles.roleBannerBlocked]}>
+            <Text style={styles.roleBannerText}>
+              {wrongSeller
+                ? `This conversation belongs to ${harvest.farmerName}. Switch your demo seller on the home screen to reply.`
+                : `You are replying as ${harvest.farmerName}`}
+            </Text>
           </View>
         ) : null}
 
@@ -126,7 +134,7 @@ export default function ChatScreen() {
           style={styles.promptRow}
           contentContainerStyle={styles.promptContent}
           keyboardShouldPersistTaps="handled">
-          {(role === 'buyer' ? BUYER_PROMPTS : SELLER_PROMPTS).map((prompt) => (
+          {(role === 'buyer' ? BUYER_PROMPTS : wrongSeller ? [] : SELLER_PROMPTS).map((prompt) => (
             <TouchableOpacity key={prompt} style={styles.promptChip} onPress={() => send(prompt)}>
               <Text style={styles.promptText}>{prompt}</Text>
             </TouchableOpacity>
@@ -143,8 +151,8 @@ export default function ChatScreen() {
             multiline
           />
           <TouchableOpacity
-            style={[styles.sendButton, !draft.trim() && styles.sendDisabled]}
-            disabled={!draft.trim()}
+            style={[styles.sendButton, (!draft.trim() || wrongSeller) && styles.sendDisabled]}
+            disabled={!draft.trim() || wrongSeller}
             onPress={() => send(draft)}>
             <Text style={styles.sendText}>Send</Text>
           </TouchableOpacity>
@@ -180,6 +188,7 @@ const styles = StyleSheet.create({
   lotPhoto: { width: '100%', height: 160, borderRadius: 15, marginBottom: 14 },
   roleBanner: { backgroundColor: colors.amberSoft, paddingHorizontal: 16, paddingVertical: 8 },
   roleBannerText: { color: '#715112', fontSize: 11, fontWeight: '800' },
+  roleBannerBlocked: { backgroundColor: colors.dangerSoft },
   mineWrap: { alignItems: 'flex-end', marginBottom: 9 },
   theirsWrap: { alignItems: 'flex-start', marginBottom: 9 },
   bubble: { maxWidth: '82%', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10 },

@@ -6,8 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MetricCard } from '@/components/MetricCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useFarmPool } from '@/context/FarmPoolContext';
-import { formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
+import { farmLabel, formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
 import { colors } from '@/lib/theme';
+import { FEATURE_LABELS } from '@/lib/features';
+import { modelEvaluation } from '@/lib/ranking';
 import { ConditionGrade, MatchBreakdown, RankedCombination } from '@/lib/types';
 
 const conditionRank: Record<ConditionGrade, number> = { Economy: 1, Standard: 2, Premium: 3 };
@@ -22,8 +24,11 @@ const BREAKDOWN_LABELS: { key: keyof MatchBreakdown; label: string }[] = [
 
 export default function MatchesScreen() {
   const router = useRouter();
-  const { plan, runDemo, approveDeal, chooseCombination } = useFarmPool();
+  const { plan, runDemo, approveDeal, chooseCombination, orderRequests, fulfilmentLog } =
+    useFarmPool();
   const [expandedLotId, setExpandedLotId] = useState<string | null>(null);
+  const [transparencyOpen, setTransparencyOpen] = useState(false);
+  const [priceRelaxedFor, setPriceRelaxedFor] = useState<string | null>(null);
 
   function createDemoPlan() {
     runDemo();
@@ -56,6 +61,15 @@ export default function MatchesScreen() {
 
   const complete = plan.fulfilledKg >= plan.requestedKg;
   const status = plan.withinBudget ? 'READY TO APPROVE' : complete ? 'ABOVE PRICE TARGET' : 'PARTIAL SUPPLY';
+  const priceRelaxed = priceRelaxedFor === plan.order.id;
+  const overCeiling = !plan.withinPriceCeiling;
+  const canApprove = complete && (plan.withinBudget || priceRelaxed);
+  const allHarvests = plan.rankedCombinations.flatMap((combo) => combo.lots.map((l) => l.harvest));
+  const declinedFarms = new Map(
+    orderRequests
+      .filter((request) => request.orderId === plan.order.id && request.status === 'Declined')
+      .map((request) => [request.harvestId, request.farmerName]),
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -118,11 +132,40 @@ export default function MatchesScreen() {
           <>
             <View style={styles.sectionHeadingRow}>
               <View>
-                <Text style={styles.sectionEyebrow}>HYBRID MATCHING</Text>
-                <Text style={styles.sectionTitle}>Top ranked pools</Text>
+                <Text style={styles.sectionEyebrow}>
+                  {overCeiling ? 'PRICE CEILING NOT MET' : 'HYBRID MATCHING'}
+                </Text>
+                <Text style={styles.sectionTitle}>
+                  {overCeiling ? 'No pool meets your price ceiling' : 'Top ranked pools'}
+                </Text>
               </View>
-              <Text style={styles.sectionCount}>top {plan.rankedCombinations.length}</Text>
+              <Text style={styles.sectionCount}>
+                {overCeiling ? 'closest options' : `top ${plan.rankedCombinations.length}`}
+              </Text>
             </View>
+
+            {overCeiling ? (
+              <View style={styles.ceilingCard}>
+                <Text style={styles.ceilingText}>
+                  Every feasible pool costs more than your{' '}
+                  {formatPrice(plan.order.maximumDeliveredPricePerKg)} ceiling. These are the
+                  closest alternatives, not recommendations. To choose one anyway, relax the
+                  price limit first.
+                </Text>
+                {!priceRelaxed ? (
+                  <TouchableOpacity
+                    style={styles.ceilingButton}
+                    onPress={() => setPriceRelaxedFor(plan.order.id)}>
+                    <Text style={styles.ceilingButtonText}>Relax price limit</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.ceilingRelaxed}>
+                    Price limit relaxed for this order. You can now pick and approve a pool above
+                    your target.
+                  </Text>
+                )}
+              </View>
+            ) : null}
 
             <View style={styles.pipelineCard}>
               <View style={styles.pipelineBadges}>
@@ -139,7 +182,9 @@ export default function MatchesScreen() {
             </View>
 
             <Text style={styles.tapHint}>
-              FarmPool recommends #1. Tap any pool to use it instead.
+              {overCeiling
+                ? 'Sorted by how close each option gets to your ceiling.'
+                : 'FarmPool recommends #1. Tap any pool to use it instead.'}
             </Text>
 
             {plan.rankedCombinations.map((combo) => (
@@ -147,18 +192,34 @@ export default function MatchesScreen() {
                 key={combo.id}
                 combo={combo}
                 selected={combo.id === plan.selectedCombinationId}
+                overCeiling={overCeiling}
+                selectable={!overCeiling || priceRelaxed}
+                ceiling={plan.order.maximumDeliveredPricePerKg}
+                allHarvests={allHarvests}
+                declinedNames={combo.lots
+                  .filter((lot) => declinedFarms.has(lot.harvest.id))
+                  .map((lot) => declinedFarms.get(lot.harvest.id)!)}
                 onSelect={() => chooseCombination(combo.id)}
               />
             ))}
 
             {plan.modelInfo ? (
               <Text style={styles.modelNote}>
-                Ranked by {plan.modelInfo.modelType.replace('_', ' ')} ({plan.modelInfo.library},
-                AUC {plan.modelInfo.auc.toFixed(2)}) trained on {plan.modelInfo.trainedRows}{' '}
-                clearly-labelled synthetic fulfilment records. Same inputs always give the same
-                ranking.
+                Ranked by {plan.modelInfo.modelType.replace('_', ' ')} ({plan.modelInfo.library})
+                trained on {plan.modelInfo.trainedRows} labelled synthetic records. Its{' '}
+                {plan.modelInfo.auc.toFixed(2)} test score is measured on synthetic data, not
+                real-world accuracy. Same inputs always give the same ranking.
               </Text>
             ) : null}
+
+            <TouchableOpacity
+              style={styles.transparencyToggle}
+              onPress={() => setTransparencyOpen(!transparencyOpen)}>
+              <Text style={styles.transparencyToggleText}>
+                Model transparency {transparencyOpen ? '▴' : '▾'}
+              </Text>
+            </TouchableOpacity>
+            {transparencyOpen ? <ModelTransparency logged={fulfilmentLog.length} /> : null}
           </>
         ) : null}
 
@@ -177,7 +238,7 @@ export default function MatchesScreen() {
                 <Text style={styles.farmNumberText}>{index + 1}</Text>
               </View>
               <View style={styles.farmNameWrap}>
-                <Text style={styles.farmName}>{lot.harvest.farmerName}</Text>
+                <Text style={styles.farmName}>{farmLabel(lot.harvest, plan.selected.map((s) => s.harvest))}</Text>
                 <Text style={styles.farmLocation}>{lot.harvest.location} · {lot.distanceKm} km away</Text>
                 <View
                   style={[
@@ -361,17 +422,98 @@ export default function MatchesScreen() {
         </View>
 
         <TouchableOpacity
-          disabled={!complete}
-          style={[styles.primaryButton, !complete && styles.disabledButton]}
+          disabled={!canApprove}
+          style={[styles.primaryButton, !canApprove && styles.disabledButton]}
           onPress={approve}>
-          <Text style={styles.primaryButtonText}>{plan.withinBudget ? 'Approve pooled order' : complete ? 'Review and approve plan' : 'More supply required'}</Text>
-          {complete ? <Text style={styles.primaryButtonArrow}>›</Text> : null}
+          <Text style={styles.primaryButtonText}>
+            {!complete
+              ? 'More supply required'
+              : plan.withinBudget
+                ? 'Approve pooled order'
+                : priceRelaxed
+                  ? 'Approve above price target'
+                  : 'Over price ceiling. Relax the limit to approve'}
+          </Text>
+          {canApprove ? <Text style={styles.primaryButtonArrow}>›</Text> : null}
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/buyer')}>
           <Text style={styles.secondaryButtonText}>Change order requirements</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function ModelTransparency({ logged }: { logged: number }) {
+  const evaluation = modelEvaluation();
+  const topCoefficients = evaluation.coefficients.slice(0, 4);
+  return (
+    <View style={styles.transparencyCard}>
+      <Text style={styles.transparencyText}>
+        All numbers below are measured on held-out synthetic test data, not real orders.
+      </Text>
+
+      <Text style={styles.transparencyHeading}>What the model does</Text>
+      <Text style={styles.transparencyText}>
+        Rules decide what is allowed: crop, variety, condition, timing, quantity and the price
+        ceiling. The model only orders the allowed pools by predicted fulfilment risk. It can
+        never approve a pool the rules rejected.
+      </Text>
+
+      <Text style={styles.transparencyHeading}>
+        Training: {evaluation.trainRows} train / {evaluation.testRows} test synthetic records
+      </Text>
+      <View style={styles.transparencyRow}>
+        <Text style={styles.transparencyLabel}>Logistic regression (used)</Text>
+        <Text style={styles.transparencyValue}>
+          AUC {evaluation.metrics.logistic_regression.auc.toFixed(2)}
+        </Text>
+      </View>
+      <View style={styles.transparencyRow}>
+        <Text style={styles.transparencyLabel}>Random forest</Text>
+        <Text style={styles.transparencyValue}>
+          AUC {evaluation.metrics.random_forest.auc.toFixed(2)}
+        </Text>
+      </View>
+      <View style={styles.transparencyRow}>
+        <Text style={styles.transparencyLabel}>Gradient boosting</Text>
+        <Text style={styles.transparencyValue}>
+          AUC {evaluation.metrics.gradient_boosting.auc.toFixed(2)}
+        </Text>
+      </View>
+      <View style={styles.transparencyRow}>
+        <Text style={styles.transparencyLabel}>Reliability-only baseline</Text>
+        <Text style={styles.transparencyValue}>
+          AUC {evaluation.baselines.rank_by_reliability_only.toFixed(2)}
+        </Text>
+      </View>
+      <View style={styles.transparencyRow}>
+        <Text style={styles.transparencyLabel}>Precision / recall at 0.5</Text>
+        <Text style={styles.transparencyValue}>
+          {evaluation.threshold.precision.toFixed(2)} / {evaluation.threshold.recall.toFixed(2)}
+        </Text>
+      </View>
+
+      <Text style={styles.transparencyHeading}>Strongest learned weights</Text>
+      {topCoefficients.map((entry) => (
+        <View key={entry.feature} style={styles.transparencyRow}>
+          <Text style={styles.transparencyLabel}>
+            {FEATURE_LABELS[entry.feature] ?? entry.feature}
+          </Text>
+          <Text style={styles.transparencyValue}>
+            {entry.weight >= 0 ? '+' : ''}
+            {entry.weight.toFixed(2)}
+          </Text>
+        </View>
+      ))}
+
+      <Text style={styles.transparencyHeading}>Learning from real orders</Text>
+      <Text style={styles.transparencyText}>
+        Completed orders on this device: {logged} logged in the training-data schema (fulfilled,
+        on time, seller dropout). Real records replace the synthetic set at retrain. Full report:
+        ml/EVALUATION.md in the repo.
+      </Text>
+    </View>
   );
 }
 
@@ -406,17 +548,32 @@ function ScoreBar({ label, value, ml }: { label: string; value: number; ml?: boo
 function CombinationCard({
   combo,
   selected,
+  selectable,
+  overCeiling,
+  ceiling,
+  allHarvests,
+  declinedNames,
   onSelect,
 }: {
   combo: RankedCombination;
   selected: boolean;
+  selectable: boolean;
+  overCeiling: boolean;
+  ceiling: number;
+  allHarvests: { id: string; farmerName: string }[];
+  declinedNames: string[];
   onSelect: () => void;
 }) {
   return (
     <TouchableOpacity
-      activeOpacity={0.85}
+      activeOpacity={selectable ? 0.85 : 1}
+      disabled={!selectable}
       onPress={onSelect}
-      style={[styles.comboCard, selected && styles.comboCardSelected]}>
+      style={[
+        styles.comboCard,
+        selected && styles.comboCardSelected,
+        !selectable && styles.comboCardDisabled,
+      ]}>
       <View style={styles.comboTop}>
         <View style={[styles.comboRank, selected && styles.comboRankSelected]}>
           <Text style={[styles.comboRankText, selected && styles.comboRankTextSelected]}>
@@ -425,19 +582,36 @@ function CombinationCard({
         </View>
         <View style={styles.comboNameWrap}>
           <Text style={styles.comboFarms}>
-            {combo.lots.map((lot) => lot.harvest.farmerName).join(' + ')}
+            {combo.lots.map((lot) => farmLabel(lot.harvest, allHarvests)).join(' + ')}
           </Text>
           <Text style={styles.comboMeta}>
             {formatKg(combo.fulfilledKg)} · {formatPrice(combo.cost.deliveredPerKg)} delivered
-            {combo.rank === 1 ? ' · AI pick' : ''}
-            {combo.withinBudget ? '' : ' · over price target'}
+            {!overCeiling && combo.rank === 1 ? ' · AI pick' : ''}
           </Text>
+          {declinedNames.length > 0 ? (
+            <Text style={styles.comboDeclined}>
+              Includes {declinedNames.join(' and ')}, who declined this order
+            </Text>
+          ) : null}
         </View>
         <View style={styles.comboScoreWrap}>
-          <Text style={styles.comboScore}>{Math.round(combo.finalScore * 100)}</Text>
-          <Text style={[styles.comboScoreLabel, selected && styles.comboScoreLabelSelected]}>
-            {selected ? 'SELECTED' : 'TAP TO USE'}
-          </Text>
+          {overCeiling ? (
+            <>
+              <Text style={styles.comboOver}>
+                +{formatPrice(combo.cost.deliveredPerKg - ceiling)}
+              </Text>
+              <Text style={styles.comboScoreLabel}>
+                {selectable ? (selected ? 'SELECTED' : 'TAP TO USE') : 'ABOVE CEILING'}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.comboScore}>{Math.round(combo.finalScore * 100)}</Text>
+              <Text style={[styles.comboScoreLabel, selected && styles.comboScoreLabelSelected]}>
+                {selected ? 'SELECTED' : 'TAP TO USE'}
+              </Text>
+            </>
+          )}
         </View>
       </View>
 
@@ -509,6 +683,22 @@ const styles = StyleSheet.create({
   comboScoreLabel: { color: colors.faint, fontSize: 7, fontWeight: '900', letterSpacing: 0.5, marginTop: 1 },
   comboScoreLabelSelected: { color: colors.primary },
   tapHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginBottom: 10, paddingHorizontal: 4 },
+  ceilingCard: { backgroundColor: colors.dangerSoft, borderRadius: 17, padding: 15, marginBottom: 12 },
+  ceilingText: { color: '#7A4A42', fontSize: 12, lineHeight: 18 },
+  ceilingButton: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 11, marginTop: 11 },
+  ceilingButtonText: { color: colors.danger, fontSize: 13, fontWeight: '900' },
+  ceilingRelaxed: { color: '#7A4A42', fontSize: 11, fontWeight: '700', marginTop: 10 },
+  comboCardDisabled: { opacity: 0.75 },
+  comboDeclined: { color: colors.danger, fontSize: 10, fontWeight: '700', marginTop: 4 },
+  comboOver: { color: colors.danger, fontSize: 15, fontWeight: '900' },
+  transparencyToggle: { alignItems: 'center', paddingVertical: 9 },
+  transparencyToggleText: { color: colors.muted, fontSize: 11, fontWeight: '800' },
+  transparencyCard: { backgroundColor: colors.surface, borderRadius: 17, padding: 15, marginBottom: 8 },
+  transparencyHeading: { color: colors.ink, fontSize: 12, fontWeight: '900', marginTop: 11, marginBottom: 4 },
+  transparencyText: { color: colors.muted, fontSize: 11, lineHeight: 16 },
+  transparencyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  transparencyLabel: { color: colors.muted, fontSize: 11 },
+  transparencyValue: { color: colors.ink, fontSize: 11, fontWeight: '800' },
   comboBars: { backgroundColor: colors.background, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, marginTop: 12, gap: 7 },
   scoreBarRow: { flexDirection: 'row', alignItems: 'center' },
   scoreBarLabel: { width: 62, color: colors.muted, fontSize: 9, fontWeight: '800' },

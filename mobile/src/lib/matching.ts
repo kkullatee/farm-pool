@@ -162,7 +162,7 @@ function calculateCosts(selected: SelectedLot[], fulfilledKg: number): CostBreak
 function rankFeasibleCombinations(
   order: BuyerOrder,
   eligible: FarmEvaluation[],
-): RankedCombination[] {
+): { top: RankedCombination[]; withinPriceCeiling: boolean } {
   const combinations = generateCombinations(order, eligible);
 
   const ranked = combinations.map((combination) => {
@@ -173,20 +173,36 @@ function rankFeasibleCombinations(
     return rankCombination(order, lots, cost, withinBudget);
   });
 
-  // The buyer's price ceiling is a hard constraint: over-budget combinations
-  // only surface when nothing affordable exists, and stay flagged in the UI.
+  // The buyer's price ceiling is a hard constraint the ML model can never
+  // override. Affordable pools are ranked by score. When nothing is
+  // affordable, the result is NOT a recommendation list: it is the closest
+  // alternatives, ordered by how far they miss the ceiling, and the UI must
+  // present them as failures the buyer can only accept explicitly.
   const affordable = ranked.filter((combination) => combination.withinBudget);
-  const pool = affordable.length > 0 ? affordable : ranked;
-
-  return pool
-    .sort(
-      (a, b) =>
-        b.finalScore - a.finalScore ||
-        a.cost.deliveredPerKg - b.cost.deliveredPerKg ||
-        a.id.localeCompare(b.id),
-    )
-    .slice(0, 3)
-    .map((combination, index) => ({ ...combination, rank: index + 1 }));
+  if (affordable.length > 0) {
+    return {
+      withinPriceCeiling: true,
+      top: affordable
+        .sort(
+          (a, b) =>
+            b.finalScore - a.finalScore ||
+            a.cost.deliveredPerKg - b.cost.deliveredPerKg ||
+            a.id.localeCompare(b.id),
+        )
+        .slice(0, 3)
+        .map((combination, index) => ({ ...combination, rank: index + 1 })),
+    };
+  }
+  return {
+    withinPriceCeiling: false,
+    top: ranked
+      .sort(
+        (a, b) =>
+          a.cost.deliveredPerKg - b.cost.deliveredPerKg || a.id.localeCompare(b.id),
+      )
+      .slice(0, 3)
+      .map((combination, index) => ({ ...combination, rank: index + 1 })),
+  };
 }
 
 /** Old greedy fill, kept as the fallback when total supply cannot cover the order. */
@@ -223,7 +239,10 @@ export function buildMatchPlan(
   // STEPS 2-3 — candidate combinations, then ML ranking of feasible ones.
   // The AI pick (#1) is the default, but the buyer can build the plan from
   // any ranked combination — all of them already passed every hard rule.
-  const rankedCombinations = rankFeasibleCombinations(order, eligible);
+  const { top: rankedCombinations, withinPriceCeiling } = rankFeasibleCombinations(
+    order,
+    eligible,
+  );
   const winner =
     rankedCombinations.find((combination) => combination.id === preferredCombinationId) ??
     rankedCombinations[0];
@@ -254,6 +273,7 @@ export function buildMatchPlan(
       fulfilledKg >= order.quantityKg &&
       cost.deliveredPerKg <= order.maximumDeliveredPricePerKg,
     rankedCombinations,
+    withinPriceCeiling,
     selectedCombinationId: winner ? winner.id : null,
     modelInfo: rankingModelInfo(),
     createdAt: new Date().toISOString(),

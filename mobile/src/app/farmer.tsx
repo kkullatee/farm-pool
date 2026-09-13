@@ -24,7 +24,7 @@ import { VoiceNote } from '@/components/VoiceNote';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { CROPS, OTHER_VARIETY, QuantityUnit, cropInfo, isEstimatedUnit, toKg } from '@/data/crops';
 import { coordinatesFor } from '@/data/demo';
-import { analyseProduce, transcribeVoice, voiceToListing } from '@/lib/ai';
+import { analyseProduce, demoVoiceListing, transcribeVoice, voiceToListing } from '@/lib/ai';
 import { colors } from '@/lib/theme';
 import { ConditionGrade, VoiceListing } from '@/lib/types';
 import { FieldErrors, validateHarvest } from '@/lib/validation';
@@ -73,7 +73,7 @@ const emptyForm: FormState = {
 
 export default function FarmerScreen() {
   const router = useRouter();
-  const { registerHarvest } = useFarmPool();
+  const { registerHarvest, harvests } = useFarmPool();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -95,15 +95,11 @@ export default function FarmerScreen() {
     setErrors((current) => ({ ...current, crop: '', variety: '', otherVariety: '' }));
   }
 
-  async function fillFromVoice() {
-    if (!voiceUri) return;
-    setVoiceBusy(true);
-    try {
-      const result = await voiceToListing(voiceUri);
-      setVoiceResult(result);
-      const extraction = result.extraction;
-      if (!extraction) return;
-      setErrors({});
+  function applyExtraction(result: VoiceListing) {
+    setVoiceResult(result);
+    const extraction = result.extraction;
+    if (!extraction) return;
+    setErrors({});
       setForm((current) => {
         const next = { ...current };
         if (extraction.crop) {
@@ -133,6 +129,13 @@ export default function FarmerScreen() {
         if (extraction.notes && !current.notes) next.notes = extraction.notes;
         return next;
       });
+  }
+
+  async function fillFromVoice() {
+    if (!voiceUri) return;
+    setVoiceBusy(true);
+    try {
+      applyExtraction(await voiceToListing(voiceUri));
     } finally {
       setVoiceBusy(false);
     }
@@ -174,6 +177,7 @@ export default function FarmerScreen() {
       harvestDate: form.harvestDate,
       priceRaw: form.minimumPrice,
       cropInfo: selectedCrop,
+      existingListings: harvests,
     });
 
     if (Object.values(nextErrors).some(Boolean)) {
@@ -288,12 +292,34 @@ export default function FarmerScreen() {
             </TouchableOpacity>
           ) : null}
 
+          {voiceResult && voiceResult.status !== 'live' && voiceResult.status !== 'demo' ? (
+            <View style={styles.voiceErrorCard}>
+              <Text style={styles.voiceErrorTitle}>
+                {voiceResult.status === 'backend-unreachable'
+                  ? 'Backend not reachable'
+                  : voiceResult.status === 'stt-failed'
+                    ? 'Transcription failed'
+                    : 'Field extraction failed'}
+              </Text>
+              <Text style={styles.voiceErrorText}>{voiceResult.note}</Text>
+              {voiceResult.status !== 'extraction-failed' ? (
+                <TouchableOpacity
+                  style={styles.voiceSampleButton}
+                  onPress={() => applyExtraction(demoVoiceListing())}>
+                  <Text style={styles.voiceSampleText}>Use sample data instead</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+
           {voiceResult?.transcript ? (
             <View style={styles.voiceCard}>
               <Text style={styles.voiceEyebrow}>
-                {voiceResult.transcriptSource === 'demo'
-                  ? 'SAMPLE TRANSCRIPT (AI NOT CONNECTED)'
-                  : 'WHAT WE HEARD'}
+                {voiceResult.status === 'demo'
+                  ? 'SAMPLE TRANSCRIPT (DEMO FALLBACK, NOT YOUR RECORDING)'
+                  : voiceResult.status === 'extraction-failed'
+                    ? 'LIVE TRANSCRIPT (FIELDS NOT FILLED)'
+                    : 'WHAT WE HEARD (LIVE)'}
               </Text>
               <Text style={styles.voiceTranscript}>{voiceResult.transcript}</Text>
               {voiceResult.extraction && voiceResult.extraction.uncertain.length > 0 ? (
@@ -458,6 +484,11 @@ const styles = StyleSheet.create({
   voiceTranscript: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 7 },
   voiceCheck: { color: '#715112', backgroundColor: colors.amberSoft, fontSize: 11, lineHeight: 16, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginTop: 8, overflow: 'hidden' },
   voiceFootnote: { color: colors.faint, fontSize: 10, lineHeight: 14, marginTop: 9 },
+  voiceErrorCard: { backgroundColor: colors.dangerSoft, borderRadius: 15, padding: 13, marginTop: 10 },
+  voiceErrorTitle: { color: colors.danger, fontSize: 13, fontWeight: '900' },
+  voiceErrorText: { color: '#7A4A42', fontSize: 11, lineHeight: 16, marginTop: 4 },
+  voiceSampleButton: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 11, paddingVertical: 9, marginTop: 9 },
+  voiceSampleText: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   twoColumns: { flexDirection: 'row', gap: 10 },
   column: { flex: 1 },
   reviewNotice: { backgroundColor: colors.amberSoft, borderRadius: 13, padding: 12, marginTop: -6, marginBottom: 16 },

@@ -60,3 +60,70 @@ if (alternative) {
     JSON.stringify(overridden.rankedCombinations) === JSON.stringify(plan.rankedCombinations);
   console.log(`Buyer override to #${alternative.rank}: ${applied ? 'PASS' : 'FAIL'}`);
 }
+
+// Candidate uniqueness: no two ranked pools may contain the same set of lots,
+// even when a farm lists twice under the same name (clone of the first lot).
+const clone = {
+  ...demoHarvests[0],
+  id: `${demoHarvests[0].id}-clone`,
+};
+const cloned = buildMatchPlan(demoOrder, [...demoHarvests, clone]);
+const idSets = cloned.rankedCombinations.map((c) =>
+  c.lots.map((l) => l.harvest.id).sort().join('+'),
+);
+const unique = new Set(idSets).size === idSets.length;
+console.log(`Candidate uniqueness (with same-name duplicate lot): ${unique ? 'PASS' : 'FAIL'}`);
+
+// Hard price ceiling: at $1/kg nothing is affordable. The plan must say so
+// and present pools sorted by how far over the ceiling they are.
+const impossibleOrder = { ...demoOrder, maximumDeliveredPricePerKg: 1 };
+const ceilingPlan = buildMatchPlan(impossibleOrder, demoHarvests);
+const sortedByOverage = ceilingPlan.rankedCombinations.every(
+  (c, i, arr) => i === 0 || arr[i - 1].cost.deliveredPerKg <= c.cost.deliveredPerKg,
+);
+const ceilingOk =
+  !ceilingPlan.withinPriceCeiling &&
+  !ceilingPlan.withinBudget &&
+  ceilingPlan.rankedCombinations.every((c) => !c.withinBudget) &&
+  sortedByOverage;
+console.log(
+  `Impossible price ceiling ($1/kg): withinPriceCeiling=${ceilingPlan.withinPriceCeiling}, sorted by overage=${sortedByOverage} ${ceilingOk ? 'PASS' : 'FAIL'}`,
+);
+
+// Partial supply: an order far above total listed supply must produce no
+// complete pools rather than a fake "match".
+const hugeOrder = { ...demoOrder, quantityKg: 1_000_000 };
+const hugePlan = buildMatchPlan(hugeOrder, demoHarvests);
+const partialOk = hugePlan.rankedCombinations.length === 0 && hugePlan.fillRate < 1;
+console.log(
+  `Partial supply (1,000,000 kg order): ${hugePlan.rankedCombinations.length} pools, fill rate ${(hugePlan.fillRate * 100).toFixed(1)}% ${partialOk ? 'PASS' : 'FAIL'}`,
+);
+
+// Decline recovery: after a seller declines, the buyer rebuilds the plan on a
+// pool that excludes that farm. Pick any winner farm that has an alternative
+// pool without it (some farms appear in every feasible pool — those cannot be
+// replaced, only renegotiated in chat).
+const winnerFarms = plan.rankedCombinations[0].lots.map((l) => l.harvest);
+let declinedFarm = winnerFarms[0];
+let replacement = null;
+for (const farm of winnerFarms) {
+  const candidate = plan.rankedCombinations.find(
+    (c) => c.rank !== 1 && !c.lots.some((l) => l.harvest.id === farm.id),
+  );
+  if (candidate) {
+    declinedFarm = farm;
+    replacement = candidate;
+    break;
+  }
+}
+if (replacement) {
+  const recovered = buildMatchPlan(demoOrder, demoHarvests, replacement.id);
+  const recoveredOk =
+    recovered.selectedCombinationId === replacement.id &&
+    !recovered.selected.some((l) => l.harvest.id === declinedFarm.id);
+  console.log(
+    `Decline recovery (drop ${declinedFarm.farmerName}, switch to #${replacement.rank}): ${recoveredOk ? 'PASS' : 'FAIL'}`,
+  );
+} else {
+  console.log('Decline recovery: no alternative pool without the declining farm — FAIL');
+}

@@ -27,7 +27,15 @@ export default function FarmerResultScreen() {
   }
 
   const assessment = lastHarvest.assessment;
-  const sourceLabel = assessment.source === 'openai' ? 'AI image review' : 'Offline demo model';
+  const AI_STATUS_LABEL: Record<string, string> = {
+    live: 'Live AI image review',
+    'demo-fallback': 'Demo result (no backend configured)',
+    'backend-unreachable': 'Demo result (backend unreachable)',
+    'vision-unavailable': 'Demo result (vision service unavailable)',
+  };
+  const sourceLabel =
+    AI_STATUS_LABEL[assessment.aiStatus ?? ''] ??
+    (assessment.source === 'openai' ? 'Live AI image review' : 'Offline demo model');
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -68,6 +76,10 @@ export default function FarmerResultScreen() {
           <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Photo check</Text>
             <Text style={styles.profileValue}>{assessment.photoStatus ?? 'No photo'}</Text>
+          </View>
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Checked by</Text>
+            <Text style={styles.profileValue}>{sourceLabel}</Text>
           </View>
           <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Account status</Text>

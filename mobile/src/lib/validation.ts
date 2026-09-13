@@ -91,6 +91,7 @@ export function validateHarvest(input: {
   harvestDate: string;
   priceRaw: string;
   cropInfo?: CropInfo;
+  existingListings?: { farmerName: string; crop: string; variety: string; harvestDate: string }[];
 }): ValidationResult {
   const errors: FieldErrors = {};
   const warnings: string[] = [];
@@ -155,6 +156,21 @@ export function validateHarvest(input: {
   if (input.variety === OTHER_VARIETY && !isBlank(input.otherVariety)) {
     warnings.push(
       `"${input.otherVariety.trim()}" is not in our ${crop ? crop.name.toLowerCase() : 'crop'} catalog yet, so the listing will be flagged for review before buyers rely on the variety.`,
+    );
+  }
+  const duplicate = (input.existingListings ?? []).find(
+    (listing) =>
+      listing.farmerName.trim().toLowerCase() === input.farmerName.trim().toLowerCase() &&
+      listing.crop.trim().toLowerCase() === input.crop.trim().toLowerCase() &&
+      listing.variety.trim().toLowerCase() ===
+        (input.variety === OTHER_VARIETY ? input.otherVariety : input.variety)
+          .trim()
+          .toLowerCase() &&
+      listing.harvestDate === input.harvestDate,
+  );
+  if (duplicate) {
+    warnings.push(
+      `${duplicate.farmerName} already has a ${duplicate.crop} listing for ${duplicate.harvestDate}. Submitting again creates a second separate lot, not an update.`,
     );
   }
 

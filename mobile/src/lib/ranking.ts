@@ -99,12 +99,20 @@ export function rankCombination(
   const buyerFitScore = buyerFitScoreFor(features);
   const finalScore = 0.6 * probability + 0.25 * logisticsScore + 0.15 * buyerFitScore;
 
-  const topFactors = [...contributions]
-    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))
+  // Strongest signals from the actual model coefficients: up to two positive
+  // and the strongest negative, so a pool's weakness is never hidden.
+  const byStrength = [...contributions].sort(
+    (a, b) => Math.abs(b.contribution) - Math.abs(a.contribution),
+  );
+  const positives = byStrength.filter((f) => f.direction === 'positive').slice(0, 2);
+  const negative = byStrength.find((f) => f.direction === 'negative');
+  const topFactors = [...positives, ...(negative ? [negative] : [])]
+    .concat(byStrength.filter((f) => !positives.includes(f) && f !== negative))
     .slice(0, 3);
 
   return {
-    id: lots.map((lot) => lot.harvest.id).join('+'),
+    // Canonical id: sorted harvest ids, so one set of lots is always one pool.
+    id: lots.map((lot) => lot.harvest.id).sort().join('+'),
     rank: 0,
     lots,
     fulfilledKg,
@@ -117,6 +125,20 @@ export function rankCombination(
     topFactors,
     explanation: explain(probability, topFactors, features),
     features,
+  };
+}
+
+/** Evaluation evidence bundled with the model. All synthetic-data numbers. */
+export function modelEvaluation() {
+  return {
+    trainRows: model.trained_rows,
+    testRows: model.test_rows,
+    metrics: model.metrics,
+    baselines: model.baselines,
+    threshold: model.threshold_metrics,
+    coefficients: model.features
+      .map((name, index) => ({ feature: name, weight: model.coefficients[index] }))
+      .sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight)),
   };
 }
 

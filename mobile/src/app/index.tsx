@@ -28,7 +28,7 @@ export default function HomeScreen() {
             </View>
             <View>
               <Text style={styles.logo}>FarmPool</Text>
-              <Text style={styles.logoSub}>AI SUPPLY NETWORK</Text>
+              <Text style={styles.logoSub}>POOLED SUPPLY NETWORK</Text>
             </View>
           </View>
           <RoleSwitch />
@@ -66,8 +66,8 @@ export default function HomeScreen() {
           </View>
           <View style={styles.metricDivider} />
           <View style={styles.metric}>
-            <Text style={styles.metricValue}>3 signals</Text>
-            <Text style={styles.metricLabel}>quality matched</Text>
+            <Text style={styles.metricValue}>{pendingRequests}</Text>
+            <Text style={styles.metricLabel}>open requests</Text>
           </View>
         </View>
 
@@ -121,8 +121,29 @@ export default function HomeScreen() {
           <Text style={styles.secondaryArrow}>›</Text>
         </TouchableOpacity>
 
+        <View style={styles.utilityRow}>
+          <TouchableOpacity
+            style={styles.utilityButton}
+            activeOpacity={0.85}
+            onPress={() => router.push('/my-listings')}>
+            <Text style={styles.utilityTitle}>My listings</Text>
+            <Text style={styles.utilityText}>
+              {role === 'seller' ? 'Lots you have on the market' : 'Every lot on the market'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.utilityButton}
+            activeOpacity={0.85}
+            onPress={() => router.push('/messages')}>
+            <Text style={styles.utilityTitle}>Messages</Text>
+            <Text style={styles.utilityText}>
+              {role === 'seller' ? 'Buyer questions for your farm' : 'Your seller conversations'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.howCard}>
-          <Text style={styles.howEyebrow}>THE AI COORDINATOR</Text>
+          <Text style={styles.howEyebrow}>HOW MATCHING WORKS</Text>
           <Text style={styles.howTitle}>What becomes possible</Text>
           {[
             ['01', 'Screens each lot', 'Photos plus simple seller-provided produce details.'],
@@ -194,6 +215,10 @@ const styles = StyleSheet.create({
   secondaryText: { color: colors.muted, fontSize: 11, lineHeight: 15, marginTop: 3 },
   primaryArrow: { color: colors.lime, fontSize: 28 },
   secondaryArrow: { color: colors.primary, fontSize: 28 },
+  utilityRow: { flexDirection: 'row', gap: 11, marginTop: 11 },
+  utilityButton: { flex: 1, backgroundColor: colors.surface, borderColor: colors.line, borderWidth: 1, borderRadius: 19, padding: 14 },
+  utilityTitle: { color: colors.ink, fontSize: 14, fontWeight: '900' },
+  utilityText: { color: colors.muted, fontSize: 10, lineHeight: 14, marginTop: 3 },
   howCard: { backgroundColor: colors.surface, borderRadius: 23, padding: 19, marginTop: 31 },
   howEyebrow: { color: colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   howTitle: { color: colors.ink, fontSize: 23, fontWeight: '900', marginTop: 7, marginBottom: 5 },

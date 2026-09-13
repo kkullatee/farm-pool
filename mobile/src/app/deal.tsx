@@ -8,9 +8,15 @@ import { colors } from '@/lib/theme';
 
 export default function DealScreen() {
   const router = useRouter();
-  const { plan, dealApproved, approveDeal, resetDemo, orderRequests } = useFarmPool();
+  const { plan, dealApproved, approveDeal, resetDemo, orderRequests, recordOutcome, fulfilmentLog } =
+    useFarmPool();
 
-  const requests = plan ? orderRequests.filter((r) => r.orderId === plan.order.id) : [];
+  // Requests only describe the CURRENT approval. After the buyer picks a
+  // different pool, approval resets and old statuses must not leak onto the
+  // new pool's farms.
+  const requests =
+    plan && dealApproved ? orderRequests.filter((r) => r.orderId === plan.order.id) : [];
+  const outcomeRecorded = plan ? fulfilmentLog.some((r) => r.orderId === plan.order.id) : false;
   const requestFor = (harvestId: string) => requests.find((r) => r.harvestId === harvestId);
   const allAccepted = requests.length > 0 && requests.every((r) => r.status === 'Accepted');
   const anyDeclined = requests.some((r) => r.status === 'Declined');
@@ -141,6 +147,42 @@ export default function DealScreen() {
               Waiting on sellers. In this demo, switch to Seller mode on the home screen to answer
               the requests yourself.
             </Text>
+          </View>
+        ) : null}
+
+        {dealApproved && allAccepted ? (
+          <View style={styles.outcomeCard}>
+            <Text style={styles.inspectionEyebrow}>AFTER DELIVERY (DEMO)</Text>
+            <Text style={styles.inspectionTitle}>Close out this order</Text>
+            {outcomeRecorded ? (
+              <Text style={styles.outcomeDone}>
+                Outcome logged. Completed orders are stored in the same format as the model’s
+                training data, so real history replaces the synthetic set over time.
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.inspectionText}>
+                  Record how it went. This writes a training record in the exact schema the
+                  ranking model learns from.
+                </Text>
+                <View style={styles.outcomeActions}>
+                  <TouchableOpacity
+                    style={styles.outcomeGood}
+                    onPress={() =>
+                      recordOutcome({ fulfilled: true, onTime: true, sellerDropout: false })
+                    }>
+                    <Text style={styles.outcomeGoodText}>Delivered in full</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.outcomeBad}
+                    onPress={() =>
+                      recordOutcome({ fulfilled: false, onTime: false, sellerDropout: true })
+                    }>
+                    <Text style={styles.outcomeBadText}>Not fulfilled</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         ) : null}
 
@@ -313,6 +355,13 @@ const styles = StyleSheet.create({
   declinedText: { color: '#7A4A42', fontSize: 12, lineHeight: 18, marginTop: 5 },
   declinedButton: { alignItems: 'center', backgroundColor: colors.danger, borderRadius: 12, paddingVertical: 11, marginTop: 11 },
   declinedButtonText: { color: colors.surface, fontSize: 13, fontWeight: '900' },
+  outcomeCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 4, marginBottom: 8 },
+  outcomeActions: { flexDirection: 'row', gap: 9, marginTop: 12 },
+  outcomeGood: { flex: 1, alignItems: 'center', backgroundColor: colors.primary, borderRadius: 13, paddingVertical: 12 },
+  outcomeGoodText: { color: colors.surface, fontSize: 13, fontWeight: '900' },
+  outcomeBad: { flex: 1, alignItems: 'center', backgroundColor: colors.dangerSoft, borderRadius: 13, paddingVertical: 12 },
+  outcomeBadText: { color: colors.danger, fontSize: 13, fontWeight: '900' },
+  outcomeDone: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 8 },
   payoutLot: { color: colors.primary, fontSize: 9, fontWeight: '700', marginTop: 3 },
   inspectionCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 4 },
   inspectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },

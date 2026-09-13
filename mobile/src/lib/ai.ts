@@ -1,5 +1,7 @@
 import { ConditionGrade, QualityAssessment, VoiceListing } from './types';
 
+export const backendUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') ?? null;
+
 type AnalysisInput = {
   crop: string;
   variety: string;
@@ -8,7 +10,7 @@ type AnalysisInput = {
   imageUri: string | null;
 };
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
+const apiUrl = backendUrl;
 
 function localAssessment(input: AnalysisInput): QualityAssessment {
   const byCondition: Record<ConditionGrade, { grade: QualityAssessment['grade']; score: number }> =
@@ -42,7 +44,7 @@ function localAssessment(input: AnalysisInput): QualityAssessment {
 }
 
 export async function analyseProduce(input: AnalysisInput): Promise<QualityAssessment> {
-  if (!apiUrl) return localAssessment(input);
+  if (!apiUrl) return { ...localAssessment(input), aiStatus: 'demo-fallback' };
 
   try {
     const body = new FormData();
@@ -67,15 +69,21 @@ export async function analyseProduce(input: AnalysisInput): Promise<QualityAsses
     });
     if (!response.ok) throw new Error(`Analysis failed with ${response.status}`);
     const result = (await response.json()) as QualityAssessment;
-    return { ...result, source: 'openai' };
+    // The backend answers with source 'openai' when the vision model really
+    // ran, and 'demo' when it could not (no key, model error). Keep that
+    // distinction visible instead of pretending both are the same.
+    if (result.source === 'openai') return { ...result, aiStatus: 'live' };
+    return { ...result, aiStatus: 'vision-unavailable' };
   } catch {
-    return localAssessment(input);
+    return { ...localAssessment(input), aiStatus: 'backend-unreachable' };
   }
 }
 
 /** Demo fallback so the voice flow always works, clearly labeled as a sample. */
-function demoVoiceListing(): VoiceListing {
+export function demoVoiceListing(): VoiceListing {
   return {
+    status: 'demo',
+    note: 'Sample data. No backend is configured, so this is not your recording.',
     transcript:
       'Sample transcript: about two thousand kilos of Kensington Pride mangoes from Mareeba, ' +
       'ready around the twenty first, asking three dollars a kilo, top quality batch.',
@@ -104,6 +112,7 @@ function demoVoiceListing(): VoiceListing {
  * demo flow always works.
  */
 export async function voiceToListing(uri: string): Promise<VoiceListing> {
+  // No backend configured: the demo sample is intentional and says so.
   if (!apiUrl) return demoVoiceListing();
 
   try {
@@ -124,15 +133,48 @@ export async function voiceToListing(uri: string): Promise<VoiceListing> {
       transcript_source: 'elevenlabs' | 'openai' | 'unavailable';
       extraction_source: 'claude' | 'unavailable';
     };
-    if (!result.transcript) return demoVoiceListing();
+
+    // Backend reached but transcription failed: never substitute the sample.
+    if (!result.transcript) {
+      return {
+        status: 'stt-failed',
+        note: 'The backend is running but transcription failed. Check the ElevenLabs key in backend/.env.',
+        transcript: null,
+        extraction: null,
+        transcriptSource: 'unavailable',
+        extractionSource: 'unavailable',
+      };
+    }
+
+    // Real transcript but extraction failed: show the words, fill nothing.
+    if (!result.extraction) {
+      return {
+        status: 'extraction-failed',
+        note: 'Transcribed live, but field extraction failed. Check the Anthropic key in backend/.env and fill the form manually.',
+        transcript: result.transcript,
+        extraction: null,
+        transcriptSource: result.transcript_source,
+        extractionSource: 'unavailable',
+      };
+    }
+
     return {
+      status: 'live',
+      note: `Live transcription (${result.transcript_source}) and extraction (${result.extraction_source}).`,
       transcript: result.transcript,
       extraction: result.extraction,
       transcriptSource: result.transcript_source,
       extractionSource: result.extraction_source,
     };
   } catch {
-    return demoVoiceListing();
+    return {
+      status: 'backend-unreachable',
+      note: `Could not reach the backend at ${apiUrl}. Check that the server is running and the phone is on the same Wi-Fi.`,
+      transcript: null,
+      extraction: null,
+      transcriptSource: 'unavailable',
+      extractionSource: 'unavailable',
+    };
   }
 }
 

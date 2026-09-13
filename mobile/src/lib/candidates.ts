@@ -62,8 +62,17 @@ export function generateCombinations(
   };
   walk(0, [], 0);
 
+  // Safety net: one set of harvests is one candidate, never two.
+  const seen = new Set<string>();
+  const unique = results.filter((combination) => {
+    const key = combination.map((farm) => farm.harvest.id).sort().join('+');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   // Deterministic cap: prefer combinations of stronger rule-scored farms.
-  return results
+  return unique
     .map((combination) => ({
       combination,
       strength: combination.reduce((sum, farm) => sum + farm.score, 0) / combination.length,

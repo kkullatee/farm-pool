@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { SelectField } from '@/components/SelectField';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg, formatMoneyExact } from '@/lib/format';
 import { colors } from '@/lib/theme';
@@ -16,8 +17,16 @@ const STATUS_STYLE: Record<SellerResponse, { bg: string; fg: string }> = {
 
 export default function SellerOrdersScreen() {
   const router = useRouter();
-  const { orderRequests, respondToRequest } = useFarmPool();
-  const pending = orderRequests.filter((request) => request.status === 'Pending').length;
+  const { orderRequests, respondToRequest, harvests, activeSellerFarm, setActiveSellerFarm } =
+    useFarmPool();
+  const farms = [...new Set(harvests.map((harvest) => harvest.farmerName))];
+  const myRequests = orderRequests.filter(
+    (request) => request.farmerName === activeSellerFarm,
+  );
+  const pending = myRequests.filter((request) => request.status === 'Pending').length;
+  const otherPending = orderRequests.filter(
+    (request) => request.status === 'Pending' && request.farmerName !== activeSellerFarm,
+  ).length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -26,37 +35,54 @@ export default function SellerOrdersScreen() {
           eyebrow="SELLER MODE"
           title="Order requests"
           description={
-            pending > 0
-              ? `${pending} request${pending === 1 ? '' : 's'} waiting for your answer.`
-              : 'Requests appear here when a buyer approves a pooled order with your produce.'
+            activeSellerFarm
+              ? pending > 0
+                ? `${pending} request${pending === 1 ? '' : 's'} waiting for ${activeSellerFarm}.`
+                : `No open requests for ${activeSellerFarm}.`
+              : 'Pick which farm you are demoing as.'
           }
         />
 
-        <View style={styles.demoNote}>
-          <Text style={styles.demoNoteText}>
-            Demo mode: this device acts as every seller. Each card names the farm you are
-            answering for.
+        <View style={{ marginTop: 20 }} />
+        <SelectField
+          label="Demo as"
+          hint="one seller at a time"
+          placeholder="Pick which farm you are"
+          value={activeSellerFarm ?? ''}
+          options={farms.map((farm) => ({ value: farm }))}
+          onChange={(farm) => setActiveSellerFarm(farm)}
+        />
+        {otherPending > 0 ? (
+          <Text style={styles.otherPendingNote}>
+            {otherPending} more request{otherPending === 1 ? '' : 's'} for other farms. Switch the
+            demo seller above to answer as them.
           </Text>
-        </View>
+        ) : null}
 
-        {orderRequests.length === 0 ? (
+        {!activeSellerFarm ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No order requests yet</Text>
+            <Text style={styles.emptyTitle}>Pick a farm first</Text>
             <Text style={styles.emptyText}>
-              Switch to buyer mode, approve a pooled order, then come back here.
+              In this one-device demo you answer for one seller at a time.
+            </Text>
+          </View>
+        ) : myRequests.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>No requests for {activeSellerFarm}</Text>
+            <Text style={styles.emptyText}>
+              Requests appear here when a buyer approves a pooled order with this farm in it.
             </Text>
             <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace('/')}>
               <Text style={styles.primaryButtonText}>Back to FarmPool</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          orderRequests.map((request) => {
+          myRequests.map((request) => {
             const statusStyle = STATUS_STYLE[request.status];
             return (
               <View key={request.id} style={styles.card}>
                 <View style={styles.cardTop}>
                   <View style={styles.cardCopy}>
-                    <Text style={styles.actingAs}>YOU ARE {request.farmerName.toUpperCase()}</Text>
                     <Text style={styles.buyerName}>{request.buyerName}</Text>
                     <Text style={styles.lotLine}>
                       {request.crop} · {request.variety}
@@ -129,8 +155,7 @@ export default function SellerOrdersScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 55 },
-  demoNote: { backgroundColor: colors.primarySoft, borderRadius: 15, padding: 13, marginTop: 22 },
-  demoNoteText: { color: '#47684F', fontSize: 12, lineHeight: 18 },
+  otherPendingNote: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -8, marginBottom: 4 },
   empty: { alignItems: 'center', paddingVertical: 40 },
   emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '900' },
   emptyText: { color: colors.muted, fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 },
