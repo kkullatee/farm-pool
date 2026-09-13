@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { ConditionGrade, QualityAssessment, VoiceListing } from './types';
 
 export const backendUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') ?? null;
@@ -53,14 +55,7 @@ export async function analyseProduce(input: AnalysisInput): Promise<QualityAsses
     body.append('condition', input.condition);
     body.append('notes', input.notes);
     if (input.imageUri) {
-      body.append(
-        'file',
-        {
-          uri: input.imageUri,
-          name: 'produce.jpg',
-          type: 'image/jpeg',
-        } as unknown as Blob,
-      );
+      body.append('file', new File(input.imageUri), 'produce.jpg');
     }
 
     const response = await fetch(`${apiUrl}/analyse-produce`, {
@@ -117,14 +112,7 @@ export async function voiceToListing(uri: string): Promise<VoiceListing> {
 
   try {
     const body = new FormData();
-    body.append(
-      'file',
-      {
-        uri,
-        name: 'harvest-note.m4a',
-        type: 'audio/m4a',
-      } as unknown as Blob,
-    );
+    body.append('file', new File(uri), 'harvest-note.m4a');
     const response = await fetch(`${apiUrl}/voice-to-listing`, { method: 'POST', body });
     if (!response.ok) throw new Error(`Voice listing failed with ${response.status}`);
     const result = (await response.json()) as {
@@ -166,10 +154,10 @@ export async function voiceToListing(uri: string): Promise<VoiceListing> {
       transcriptSource: result.transcript_source,
       extractionSource: result.extraction_source,
     };
-  } catch {
+  } catch (error) {
     return {
       status: 'backend-unreachable',
-      note: `Could not reach the backend at ${apiUrl}. Check that the server is running and the phone is on the same Wi-Fi.`,
+      note: `Could not send the recording to the backend at ${apiUrl}. Check the server is running, then try again. (${String(error)})`,
       transcript: null,
       extraction: null,
       transcriptSource: 'unavailable',
@@ -183,14 +171,7 @@ export async function transcribeVoice(uri: string | null): Promise<string | null
 
   try {
     const body = new FormData();
-    body.append(
-      'file',
-      {
-        uri,
-        name: 'harvest-note.m4a',
-        type: 'audio/m4a',
-      } as unknown as Blob,
-    );
+    body.append('file', new File(uri), 'harvest-note.m4a');
     const response = await fetch(`${apiUrl}/transcribe`, { method: 'POST', body });
     if (!response.ok) return null;
     const result = (await response.json()) as { text?: string };
