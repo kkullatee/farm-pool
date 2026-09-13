@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProduceThumb } from '@/components/ProduceThumb';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { VisualAssessmentSummary } from '@/components/VisualAssessmentSummary';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { farmLabel, formatKg, formatPrice } from '@/lib/format';
 import { colors, statusTint } from '@/lib/theme';
@@ -15,6 +16,12 @@ function listingStatus(harvest: Harvest): { text: string; bg: string; fg: string
   }
   if (harvest.assessment.photoStatus === 'Retake required') {
     return { text: 'Photo retake needed', bg: colors.dangerSoft, fg: colors.danger };
+  }
+  if (
+    harvest.assessment.photoStatus === 'Manual review' ||
+    harvest.assessment.visualAssessment?.verificationStatus === 'needs-review'
+  ) {
+    return { text: 'Photo review', bg: colors.amberSoft, fg: colors.amber };
   }
   return { text: 'Listed', bg: statusTint.Accepted.bg, fg: statusTint.Accepted.fg };
 }
@@ -91,6 +98,7 @@ export default function MyListingsScreen() {
                   Harvest {harvest.harvestDate} · {harvest.location} ·{' '}
                   {harvest.verification ?? 'Self-reported'}
                 </Text>
+                <VisualAssessmentSummary harvest={harvest} compact />
               </View>
             );
           })

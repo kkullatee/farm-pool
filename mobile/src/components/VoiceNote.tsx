@@ -41,12 +41,12 @@ export function VoiceNote({ value, onChange }: Props) {
     <View style={styles.card}>
       <View style={styles.copy}>
         <Text style={styles.title}>
-          {state.isRecording ? `Recording ${seconds}s` : 'Describe your harvest'}
+          {state.isRecording ? `Recording ${seconds}s` : 'Talk to FarmPool'}
         </Text>
         <Text style={styles.description}>
           {value
-            ? 'Recording attached. You can re-record or remove it.'
-            : 'Say the crop, amount, location, date and price. We fill the form for you.'}
+            ? 'Recording attached. FarmPool can transcribe it and ask what is missing.'
+            : 'Say the crop, amount, location, date and price in your own words.'}
         </Text>
       </View>
       {value && !state.isRecording ? (

@@ -3,6 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProduceThumb } from '@/components/ProduceThumb';
+import { VisualAssessmentSummary } from '@/components/VisualAssessmentSummary';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg, formatMoneyExact, formatPrice, lotCode } from '@/lib/format';
 import { colors, statusTint } from '@/lib/theme';
@@ -155,6 +156,18 @@ export function BuyerOrders() {
               </View>
               <Text style={styles.payoutDetail}>{formatKg(lot.allocatedKg)} · {lot.harvest.location}</Text>
               <Text style={styles.payoutLot}>{lotCode(lot.harvest.id, index + 1)} · scanned at pickup and delivery</Text>
+              <VisualAssessmentSummary harvest={lot.harvest} compact />
+              {lot.harvest.qualityAnswers && lot.harvest.qualityAnswers.length > 0 ? (
+                <Text style={styles.qualityLine}>
+                  Self-reported:{' '}
+                  {lot.harvest.qualityAnswers
+                    .map(
+                      (answer) =>
+                        `${answer.label}: ${answer.value}${answer.unit ? ` ${answer.unit}` : ''}`,
+                    )
+                    .join(' · ')}
+                </Text>
+              ) : null}
             </View>
             <View style={styles.payoutValueWrap}>
               <Text style={styles.payoutValue}>{formatMoneyExact(lot.allocatedKg * lot.harvest.minimumPricePerKg)}</Text>
@@ -381,6 +394,7 @@ const styles = StyleSheet.create({
   outcomeBadText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
   outcomeDone: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 8 },
   payoutLot: { color: colors.primary, fontSize: 9, fontWeight: '700', marginTop: 3 },
+  qualityLine: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 7 },
   inspectionCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 18, marginTop: 4 },
   inspectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
   inspectionTitle: { color: colors.ink, fontSize: 16, fontWeight: '800', marginTop: 5, marginBottom: 8 },

@@ -5,15 +5,20 @@
  * figures for the hackathon prototype — replace with a managed catalog later.
  */
 
+import type { QualityQuestion } from '@/lib/types';
+
 export type ProduceCategory =
   | 'Sweet fruit'
   | 'Non-sweet fruit'
   | 'Leafy vegetables'
   | 'Root vegetables';
 
+export type QualityProfile = 'sweet-fruit' | 'market-fruit' | 'leafy' | 'root';
+
 export type CropInfo = {
   name: string;
   category: ProduceCategory;
+  qualityProfile: QualityProfile;
   varieties: string[];
   /** Typical farm-gate price band, AUD per kg. Values outside trigger a warning. */
   typicalPricePerKg: [number, number];
@@ -28,11 +33,145 @@ export type CropInfo = {
 };
 
 export const OTHER_VARIETY = 'Other variety';
+export const UNKNOWN_QUALITY_VALUE = 'Unknown/not measured';
+
+const SWEET_FRUIT_QUALITY: readonly QualityQuestion[] = [
+  {
+    id: 'measuredBrix',
+    label: 'Measured Brix',
+    kind: 'number',
+    unit: '°Bx',
+    hint: 'optional, measured only',
+    allowUnknown: true,
+  },
+  {
+    id: 'ripeness',
+    label: 'Ripeness',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'Green', 'Turning', 'Ripe', 'Overripe'],
+    allowUnknown: true,
+  },
+  {
+    id: 'bruising',
+    label: 'Bruising',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'None visible', 'Light', 'Moderate', 'Heavy'],
+    allowUnknown: true,
+  },
+  {
+    id: 'size',
+    label: 'Size',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'Small', 'Medium', 'Large', 'Mixed'],
+    allowUnknown: true,
+  },
+];
+
+const MARKET_FRUIT_QUALITY: readonly QualityQuestion[] = [
+  {
+    id: 'ripeness',
+    label: 'Ripeness',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'Unripe', 'Breaker', 'Ripe', 'Overripe', 'Mixed'],
+    allowUnknown: true,
+  },
+  {
+    id: 'firmness',
+    label: 'Firmness',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'Firm', 'Slight give', 'Soft', 'Mixed'],
+    allowUnknown: true,
+  },
+  {
+    id: 'colour',
+    label: 'Colour',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'Even', 'Turning', 'Patchy', 'Mixed'],
+    allowUnknown: true,
+  },
+  {
+    id: 'damage',
+    label: 'Visible damage',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'None visible', 'Light marks', 'Moderate', 'Heavy'],
+    allowUnknown: true,
+  },
+];
+
+const LEAFY_QUALITY: readonly QualityQuestion[] = [
+  {
+    id: 'wilting',
+    label: 'Wilting',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'None visible', 'Light', 'Moderate', 'Heavy'],
+    allowUnknown: true,
+  },
+  {
+    id: 'colour',
+    label: 'Leaf colour',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'Deep green', 'Pale', 'Yellowing', 'Mixed'],
+    allowUnknown: true,
+  },
+  {
+    id: 'damage',
+    label: 'Leaf damage',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'None visible', 'Light', 'Moderate', 'Heavy'],
+    allowUnknown: true,
+  },
+  {
+    id: 'storage',
+    label: 'Storage condition',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'Field packed', 'Shade held', 'Pre-cooled', 'Refrigerated'],
+    allowUnknown: true,
+  },
+];
+
+const ROOT_QUALITY: readonly QualityQuestion[] = [
+  {
+    id: 'sizeRange',
+    label: 'Size range',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'Small', 'Medium', 'Large', 'Mixed'],
+    allowUnknown: true,
+  },
+  {
+    id: 'rot',
+    label: 'Rot',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'None visible', 'Light', 'Moderate', 'Heavy'],
+    allowUnknown: true,
+  },
+  {
+    id: 'sprouting',
+    label: 'Sprouting',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'None visible', 'Some', 'Significant'],
+    allowUnknown: true,
+  },
+  {
+    id: 'surfaceDamage',
+    label: 'Surface damage',
+    kind: 'choice',
+    options: [UNKNOWN_QUALITY_VALUE, 'None visible', 'Light scuffs', 'Cuts/cracks', 'Mixed'],
+    allowUnknown: true,
+  },
+];
+
+const QUALITY_BY_PROFILE: Record<QualityProfile, readonly QualityQuestion[]> = {
+  'sweet-fruit': SWEET_FRUIT_QUALITY,
+  'market-fruit': MARKET_FRUIT_QUALITY,
+  leafy: LEAFY_QUALITY,
+  root: ROOT_QUALITY,
+};
 
 export const CROPS: CropInfo[] = [
   {
     name: 'Mango',
     category: 'Sweet fruit',
+    qualityProfile: 'sweet-fruit',
     varieties: ['Kensington Pride', 'R2E2', 'Calypso', 'Honey Gold', 'Keitt'],
     typicalPricePerKg: [2, 6],
     typicalLotKg: [300, 30000],
@@ -43,6 +182,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Banana',
     category: 'Sweet fruit',
+    qualityProfile: 'sweet-fruit',
     varieties: ['Cavendish', 'Lady Finger', 'Ducasse'],
     typicalPricePerKg: [1, 3.5],
     typicalLotKg: [500, 40000],
@@ -53,6 +193,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Strawberry',
     category: 'Sweet fruit',
+    qualityProfile: 'sweet-fruit',
     varieties: ['Red Rhapsody', 'Sundrench', 'Festival', 'Albion'],
     typicalPricePerKg: [6, 14],
     typicalLotKg: [50, 8000],
@@ -63,6 +204,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Watermelon',
     category: 'Sweet fruit',
+    qualityProfile: 'sweet-fruit',
     varieties: ['Seedless', 'Champagne', 'Fireball'],
     typicalPricePerKg: [0.5, 1.8],
     typicalLotKg: [1000, 60000],
@@ -73,6 +215,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Pineapple',
     category: 'Sweet fruit',
+    qualityProfile: 'sweet-fruit',
     varieties: ['Smooth Cayenne', 'MD2', 'Bethonga Gold'],
     typicalPricePerKg: [1, 3],
     typicalLotKg: [500, 30000],
@@ -83,6 +226,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Tomato',
     category: 'Non-sweet fruit',
+    qualityProfile: 'market-fruit',
     varieties: ['Gourmet', 'Roma', 'Cherry', 'Truss', 'Heirloom'],
     typicalPricePerKg: [2, 6.5],
     typicalLotKg: [200, 25000],
@@ -93,6 +237,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Avocado',
     category: 'Non-sweet fruit',
+    qualityProfile: 'market-fruit',
     varieties: ['Hass', 'Shepard', 'Wurtz'],
     typicalPricePerKg: [2, 7],
     typicalLotKg: [200, 25000],
@@ -103,6 +248,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Cucumber',
     category: 'Non-sweet fruit',
+    qualityProfile: 'market-fruit',
     varieties: ['Continental', 'Lebanese', 'Green Gem'],
     typicalPricePerKg: [1.5, 4.5],
     typicalLotKg: [200, 20000],
@@ -113,6 +259,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Capsicum',
     category: 'Non-sweet fruit',
+    qualityProfile: 'market-fruit',
     varieties: ['Red', 'Green', 'Yellow', 'Mini'],
     typicalPricePerKg: [2.5, 7],
     typicalLotKg: [200, 20000],
@@ -123,6 +270,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Zucchini',
     category: 'Non-sweet fruit',
+    qualityProfile: 'market-fruit',
     varieties: ['Blackjack', 'Golden', 'Lebanese'],
     typicalPricePerKg: [1.5, 5],
     typicalLotKg: [200, 15000],
@@ -133,6 +281,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Lettuce',
     category: 'Leafy vegetables',
+    qualityProfile: 'leafy',
     varieties: ['Iceberg', 'Cos', 'Butter', 'Oak Leaf'],
     typicalPricePerKg: [1.5, 4.5],
     typicalLotKg: [100, 15000],
@@ -143,6 +292,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Spinach',
     category: 'Leafy vegetables',
+    qualityProfile: 'leafy',
     varieties: ['Baby Spinach', 'English', 'Silverbeet'],
     typicalPricePerKg: [4, 12],
     typicalLotKg: [50, 8000],
@@ -153,6 +303,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Kale',
     category: 'Leafy vegetables',
+    qualityProfile: 'leafy',
     varieties: ['Curly', 'Tuscan', 'Red Russian'],
     typicalPricePerKg: [3, 10],
     typicalLotKg: [50, 8000],
@@ -163,6 +314,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Cabbage',
     category: 'Leafy vegetables',
+    qualityProfile: 'leafy',
     varieties: ['Green', 'Red', 'Savoy', 'Wombok'],
     typicalPricePerKg: [0.8, 2.5],
     typicalLotKg: [300, 25000],
@@ -173,6 +325,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Carrot',
     category: 'Root vegetables',
+    qualityProfile: 'root',
     varieties: ['Nantes', 'Baby', 'Purple', 'Juicing'],
     typicalPricePerKg: [0.6, 2.2],
     typicalLotKg: [500, 40000],
@@ -183,6 +336,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Potato',
     category: 'Root vegetables',
+    qualityProfile: 'root',
     varieties: ['Sebago', 'Desiree', 'Kipfler', 'Brushed'],
     typicalPricePerKg: [0.5, 2],
     typicalLotKg: [1000, 60000],
@@ -193,6 +347,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Sweet potato',
     category: 'Root vegetables',
+    qualityProfile: 'root',
     varieties: ['Gold', 'Purple', 'White'],
     typicalPricePerKg: [1, 3.5],
     typicalLotKg: [500, 40000],
@@ -203,6 +358,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Onion',
     category: 'Root vegetables',
+    qualityProfile: 'root',
     varieties: ['Brown', 'Red', 'White', 'Shallot'],
     typicalPricePerKg: [0.5, 2],
     typicalLotKg: [500, 50000],
@@ -213,6 +369,7 @@ export const CROPS: CropInfo[] = [
   {
     name: 'Beetroot',
     category: 'Root vegetables',
+    qualityProfile: 'root',
     varieties: ['Boltardy', 'Baby', 'Golden'],
     typicalPricePerKg: [1, 3],
     typicalLotKg: [200, 20000],
@@ -225,6 +382,10 @@ export const CROPS: CropInfo[] = [
 export function cropInfo(name: string): CropInfo | undefined {
   const wanted = name.trim().toLowerCase();
   return CROPS.find((crop) => crop.name.toLowerCase() === wanted);
+}
+
+export function qualityQuestionsForCrop(crop?: CropInfo): readonly QualityQuestion[] {
+  return crop ? QUALITY_BY_PROFILE[crop.qualityProfile] : [];
 }
 
 export type QuantityUnit = 'kg' | 'tonnes' | 'crates' | 'pallets';

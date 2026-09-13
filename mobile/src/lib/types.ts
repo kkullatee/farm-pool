@@ -50,6 +50,29 @@ export type Coordinates = {
 };
 
 export type PhotoStatus = 'Accepted' | 'Retake required' | 'Manual review' | 'No photo';
+export type VisualVerificationStatus = 'ai-screened' | 'needs-review' | 'unverified';
+
+export type VisualAssessment = {
+  containsProduce: boolean;
+  inappropriateOrIrrelevant: boolean;
+  detectedCrop: string | null;
+  cropAgreesWithListing: boolean | null;
+  observations: string[];
+  damageOrDefectIndicators: string[];
+  confidence: number;
+  requiresAnotherPhoto: boolean;
+  retakeReason: string | null;
+  verificationStatus: VisualVerificationStatus;
+  source: 'anthropic' | 'demo';
+  disclaimer: string;
+};
+
+export type PhotoReference = {
+  /** Prototype only: local URI. TODO replace with durable object storage before production. */
+  uri: string;
+  storage: 'local-device';
+  note: string;
+};
 
 export type QualityAssessment = {
   grade: QualityGrade;
@@ -61,9 +84,24 @@ export type QualityAssessment = {
   /** Photo screening result. Anything except Accepted is never shown to buyers. */
   photoStatus?: PhotoStatus;
   photoChecks?: string[];
+  /** Visual-only screen. Does not prove Brix, internal quality, food safety or freshness. */
+  visualAssessment?: VisualAssessment | null;
   /** How this assessment was produced. Set client-side, never faked. */
   aiStatus?: 'live' | 'demo-fallback' | 'backend-unreachable' | 'vision-unavailable';
 };
+
+export type VoiceField =
+  | 'crop'
+  | 'variety'
+  | 'quantity'
+  | 'unit'
+  | 'location'
+  | 'harvest_date'
+  | 'price_per_kg'
+  | 'condition'
+  | 'notes';
+
+export type VoiceFieldConfidence = Record<VoiceField, number | null>;
 
 /** Listing fields extracted from a spoken harvest description. */
 export type VoiceExtraction = {
@@ -76,8 +114,12 @@ export type VoiceExtraction = {
   price_per_kg: number | null;
   condition: ConditionGrade | null;
   notes: string | null;
-  uncertain: string[];
-  missing: string[];
+  field_confidence: VoiceFieldConfidence;
+  uncertain: VoiceField[];
+  missing: VoiceField[];
+  ambiguous: VoiceField[];
+  conflicts: string[];
+  follow_up_questions: string[];
 };
 
 /** Exactly what happened on a voice autofill attempt. Never ambiguous. */
@@ -124,10 +166,32 @@ export type Harvest = {
   /** True when quantity was entered in containers and converted to estimated kg. */
   quantityEstimated?: boolean;
   imageUri?: string | null;
+  photoReference?: PhotoReference | null;
   voiceUri?: string | null;
   notes?: string;
+  qualityAnswers?: QualityAnswer[];
   assessment: QualityAssessment;
   isDemo?: boolean;
+};
+
+export type QualityQuestionKind = 'choice' | 'number' | 'text';
+
+export type QualityQuestion = {
+  id: string;
+  label: string;
+  kind: QualityQuestionKind;
+  hint?: string;
+  unit?: string;
+  options?: string[];
+  allowUnknown: boolean;
+};
+
+export type QualityAnswer = {
+  id: string;
+  label: string;
+  value: string;
+  unit?: string;
+  selfReported: true;
 };
 
 export type BuyerOrder = {
@@ -252,3 +316,15 @@ export type MatchPlan = {
   createdAt: string;
 };
 
+export type PoolCoordinatorResult = {
+  recommendation: string;
+  confidence: number;
+  evidence: string[];
+  tradeoffs: string[];
+  selectedReason: string[];
+  excludedReason: string[];
+  adjustmentSuggestions: string[];
+  source: 'claude' | 'demo';
+  approvalRequired: boolean;
+  aiStatus: 'live' | 'demo-fallback' | 'backend-unreachable' | 'coordinator-unavailable';
+};

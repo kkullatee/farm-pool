@@ -38,33 +38,45 @@ class PhotoScreenTests(unittest.TestCase):
 
     def test_accepted(self) -> None:
         screen = PhotoScreen(
-            status="Accepted",
-            produce_visible=True,
-            crop_match_plausible=True,
-            image_usable=True,
-            reason="Clear photo of mangoes in good light.",
+            containsProduce=True,
+            inappropriateOrIrrelevant=False,
+            detectedCrop="Mango",
+            cropAgreesWithListing=True,
+            imageUsable=True,
+            observations=["Clear photo of mangoes in good light."],
+            damageOrDefectIndicators=[],
             confidence=0.92,
+            requiresAnotherPhoto=False,
+            retakeReason=None,
+            verificationStatus="ai-screened",
         )
         with patch("app.main.screen_photo_with_claude", return_value=screen):
             result = analyse()
         self.assertEqual(result.photoStatus, "Accepted")
         self.assertEqual(result.source, "anthropic")
         self.assertIn("Produce visible in photo", result.photoChecks)
+        self.assertEqual(result.visualAssessment.verificationStatus, "ai-screened")
 
     def test_retake_required(self) -> None:
         screen = PhotoScreen(
-            status="Retake required",
-            produce_visible=False,
-            crop_match_plausible=False,
-            image_usable=False,
-            reason="The photo is too dark to see any produce.",
+            containsProduce=False,
+            inappropriateOrIrrelevant=True,
+            detectedCrop=None,
+            cropAgreesWithListing=False,
+            imageUsable=False,
+            observations=[],
+            damageOrDefectIndicators=[],
             confidence=0.88,
+            requiresAnotherPhoto=True,
+            retakeReason="The photo is too dark to see any produce.",
+            verificationStatus="unverified",
         )
         with patch("app.main.screen_photo_with_claude", return_value=screen):
             result = analyse()
         self.assertEqual(result.photoStatus, "Retake required")
         self.assertEqual(result.source, "anthropic")
         self.assertIn("No produce clearly visible", result.photoChecks)
+        self.assertEqual(result.visualAssessment.verificationStatus, "unverified")
 
     def test_api_failure_downgrades_to_manual_review(self) -> None:
         with patch("app.main.screen_photo_with_claude", side_effect=TimeoutError("api down")):
@@ -74,14 +86,20 @@ class PhotoScreenTests(unittest.TestCase):
 
     def test_inconsistent_accept_is_never_faked(self) -> None:
         # The consistency guard lives inside screen_photo_with_claude; exercise
-        # it directly: an "Accepted" with a failed check must not survive.
+        # it directly: an ai-screened result with a failed usability check must
+        # not survive as accepted.
         screen = PhotoScreen(
-            status="Accepted",
-            produce_visible=True,
-            crop_match_plausible=True,
-            image_usable=False,
-            reason="Blurry but probably mangoes.",
+            containsProduce=True,
+            inappropriateOrIrrelevant=False,
+            detectedCrop="Mango",
+            cropAgreesWithListing=True,
+            imageUsable=False,
+            observations=["Blurry but probably mangoes."],
+            damageOrDefectIndicators=[],
             confidence=0.5,
+            requiresAnotherPhoto=False,
+            retakeReason=None,
+            verificationStatus="ai-screened",
         )
         fake_client = Mock()
         fake_client.messages.parse.return_value = Mock(parsed_output=screen)
@@ -89,7 +107,8 @@ class PhotoScreenTests(unittest.TestCase):
             result = screen_photo_with_claude(
                 image_bytes=b"x", content_type="image/jpeg", crop="Mango", variety="KP"
             )
-        self.assertEqual(result.status, "Manual review")
+        self.assertEqual(result.verificationStatus, "unverified")
+        self.assertTrue(result.requiresAnotherPhoto)
 
     def test_health_reports_anthropic_vision(self) -> None:
         body = health()

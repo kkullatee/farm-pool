@@ -1,16 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MetricCard } from '@/components/MetricCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { VisualAssessmentSummary } from '@/components/VisualAssessmentSummary';
 import { useFarmPool } from '@/context/FarmPoolContext';
-import { farmLabel, formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
+import { coordinatePoolPlan } from '@/lib/ai';
+import { farmLabel, formatKg, formatMoneyExact, formatPercent, formatPrice } from '@/lib/format';
 import { colors } from '@/lib/theme';
 import { FEATURE_LABELS } from '@/lib/features';
 import { modelEvaluation } from '@/lib/ranking';
-import { ConditionGrade, MatchBreakdown, RankedCombination } from '@/lib/types';
+import {
+  ConditionGrade,
+  MatchBreakdown,
+  PoolCoordinatorResult,
+  RankedCombination,
+} from '@/lib/types';
 
 const conditionRank: Record<ConditionGrade, number> = { Economy: 1, Standard: 2, Premium: 3 };
 
@@ -22,6 +37,13 @@ const BREAKDOWN_LABELS: { key: keyof MatchBreakdown; label: string }[] = [
   { key: 'reliability', label: 'Reliability' },
 ];
 
+const COORDINATOR_PROGRESS = [
+  'Comparing compatible farms',
+  'Testing pool combinations',
+  'Checking transport and buyer requirements',
+  'Preparing the recommendation',
+];
+
 export default function MatchesScreen() {
   const router = useRouter();
   const { plan, runDemo, approveDeal, chooseCombination, orderRequests, fulfilmentLog } =
@@ -29,6 +51,39 @@ export default function MatchesScreen() {
   const [expandedLotId, setExpandedLotId] = useState<string | null>(null);
   const [transparencyOpen, setTransparencyOpen] = useState(false);
   const [priceRelaxedFor, setPriceRelaxedFor] = useState<string | null>(null);
+  const [coordinator, setCoordinator] = useState<PoolCoordinatorResult | null>(null);
+  const [coordinatorStep, setCoordinatorStep] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!plan) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const starter = setTimeout(() => {
+      let stepIndex = 0;
+      if (cancelled) return;
+      setCoordinator(null);
+      setCoordinatorStep(COORDINATOR_PROGRESS[stepIndex]);
+      timer = setInterval(() => {
+        stepIndex = Math.min(stepIndex + 1, COORDINATOR_PROGRESS.length - 1);
+        setCoordinatorStep(COORDINATOR_PROGRESS[stepIndex]);
+      }, 1100);
+
+      coordinatePoolPlan(plan)
+        .then((result) => {
+          if (!cancelled) setCoordinator(result);
+        })
+        .finally(() => {
+          if (!cancelled) setCoordinatorStep(null);
+          if (timer) clearInterval(timer);
+        });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(starter);
+      if (timer) clearInterval(timer);
+    };
+  }, [plan]);
 
   function createDemoPlan() {
     runDemo();
@@ -127,6 +182,8 @@ export default function MatchesScreen() {
           <MetricCard label="route distance" value={`${plan.cost.routeKm} km`} tone="amber" />
         </View>
 
+        <CoordinatorCard result={coordinator} step={coordinatorStep} />
+
         {plan.rankedCombinations.length > 0 ? (
           <>
             <View style={styles.sectionHeadingRow}>
@@ -171,12 +228,15 @@ export default function MatchesScreen() {
                 <Text style={styles.rulesBadge}>RULES · FEASIBILITY</Text>
                 <Text style={styles.pipelineArrow}>›</Text>
                 <Text style={styles.mlBadge}>ML · RANKING</Text>
+                <Text style={styles.pipelineArrow}>›</Text>
+                <Text style={styles.aiBadge}>AI · COORDINATOR</Text>
               </View>
               <Text style={styles.pipelineText}>
                 Hard rules removed {plan.rejected.length} of{' '}
                 {plan.rejected.length + plan.selected.length + plan.eligibleNotNeeded.length} farms
                 (wrong variety, quality, timing or radius), then a trained model ranked every
-                feasible pool by predicted fulfilment. The model never overrides a rule.
+                feasible pool by predicted fulfilment. FarmPool AI explains the options after the
+                calculations are done.
               </Text>
             </View>
 
@@ -304,6 +364,20 @@ export default function MatchesScreen() {
               <Text style={styles.photoHeld}>
                 Seller added a photo. It shows here once it passes the photo check.
               </Text>
+            ) : null}
+            <VisualAssessmentSummary harvest={lot.harvest} compact />
+            {lot.harvest.qualityAnswers && lot.harvest.qualityAnswers.length > 0 ? (
+              <View style={styles.qualityEvidence}>
+                <Text style={styles.qualityEvidenceTitle}>SELF-REPORTED QUALITY</Text>
+                <Text style={styles.qualityEvidenceText}>
+                  {lot.harvest.qualityAnswers
+                    .map(
+                      (answer) =>
+                        `${answer.label}: ${answer.value}${answer.unit ? ` ${answer.unit}` : ''}`,
+                    )
+                    .join(' · ')}
+                </Text>
+              </View>
             ) : null}
             <View style={styles.farmStats}>
               <View style={styles.farmStat}>
@@ -441,6 +515,81 @@ export default function MatchesScreen() {
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function CoordinatorCard({
+  result,
+  step,
+}: {
+  result: PoolCoordinatorResult | null;
+  step: string | null;
+}) {
+  if (!result && !step) return null;
+  if (!result) {
+    return (
+      <View style={styles.coordinatorCard}>
+        <View style={styles.coordinatorTop}>
+          <Text style={styles.sectionEyebrow}>FARMPOOL AI COORDINATOR</Text>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+        <Text style={styles.coordinatorTitle}>{step}</Text>
+      </View>
+    );
+  }
+
+  const sourceLabel =
+    result.aiStatus === 'live'
+      ? 'Claude explanation'
+      : result.aiStatus === 'demo-fallback'
+        ? 'Offline coordinator summary'
+        : 'Fallback coordinator summary';
+
+  return (
+    <View style={styles.coordinatorCard}>
+      <View style={styles.coordinatorTop}>
+        <Text style={styles.sectionEyebrow}>FARMPOOL AI COORDINATOR</Text>
+        <Text style={styles.coordinatorSource}>
+          {sourceLabel} · {formatPercent(result.confidence)}
+        </Text>
+      </View>
+      <Text style={styles.coordinatorTitle}>{result.recommendation}</Text>
+      {result.evidence.length > 0 ? (
+        <View style={styles.coordinatorList}>
+          {result.evidence.map((item) => (
+            <Text key={item} style={styles.coordinatorItem}>
+              {item}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      {result.tradeoffs.length > 0 ? (
+        <Text style={styles.coordinatorText}>{result.tradeoffs.join(' ')}</Text>
+      ) : null}
+      {result.selectedReason.length > 0 ? (
+        <Text style={styles.coordinatorText}>
+          Selected: {result.selectedReason.join(' ')}
+        </Text>
+      ) : null}
+      {result.excludedReason.length > 0 ? (
+        <Text style={styles.coordinatorText}>
+          Excluded: {result.excludedReason.join(' ')}
+        </Text>
+      ) : null}
+      {result.adjustmentSuggestions.length > 0 ? (
+        <View style={styles.adjustmentBox}>
+          <Text style={styles.adjustmentTitle}>Adjustments to confirm</Text>
+          {result.adjustmentSuggestions.map((item) => (
+            <Text key={item} style={styles.adjustmentText}>
+              {item}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      <Text style={styles.coordinatorFootnote}>
+        Approval still requires buyer action and seller confirmation.
+      </Text>
+    </View>
   );
 }
 
@@ -691,6 +840,18 @@ const styles = StyleSheet.create({
   mlBadge: { color: '#F5EFE2', backgroundColor: colors.primaryDark, fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
   pipelineArrow: { color: '#8FA394', fontSize: 14, fontWeight: '800' },
   pipelineText: { color: '#C6D2C8', fontSize: 11, lineHeight: 16, marginTop: 10 },
+  aiBadge: { color: colors.ink, backgroundColor: colors.primarySoft, fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
+  coordinatorCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 16, marginTop: 15 },
+  coordinatorTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  coordinatorSource: { color: colors.faint, fontSize: 9, fontWeight: '800' },
+  coordinatorTitle: { color: colors.ink, fontSize: 14, lineHeight: 20, fontWeight: '800', marginTop: 8 },
+  coordinatorList: { gap: 5, marginTop: 9 },
+  coordinatorItem: { color: colors.primaryDark, backgroundColor: colors.primarySoft, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7, overflow: 'hidden', fontSize: 10, lineHeight: 14, fontWeight: '700' },
+  coordinatorText: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 8 },
+  coordinatorFootnote: { color: colors.faint, fontSize: 9, lineHeight: 13, marginTop: 9 },
+  adjustmentBox: { backgroundColor: colors.amberSoft, borderRadius: 10, padding: 11, marginTop: 10 },
+  adjustmentTitle: { color: colors.amber, fontSize: 11, fontWeight: '800', marginBottom: 5 },
+  adjustmentText: { color: '#735D2B', fontSize: 10, lineHeight: 15, marginTop: 3 },
   comboCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
   comboCardSelected: { borderColor: colors.primary, borderWidth: 2 },
   comboCardRecommended: { borderColor: colors.primary, borderWidth: 2 },
@@ -765,6 +926,9 @@ const styles = StyleSheet.create({
   breakdownNote: { color: colors.faint, fontSize: 9, lineHeight: 13, marginTop: 3 },
   farmPhoto: { width: '100%', height: 150, borderRadius: 10, marginTop: 12 },
   photoHeld: { color: colors.faint, fontSize: 10, lineHeight: 14, marginTop: 10 },
+  qualityEvidence: { backgroundColor: colors.background, borderRadius: 10, padding: 10, marginTop: 10 },
+  qualityEvidenceTitle: { color: colors.primary, fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+  qualityEvidenceText: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 5 },
   farmFit: { color: colors.primary, fontSize: 10, lineHeight: 15, marginTop: 11, fontWeight: '700' },
   chatButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, borderRadius: 10, paddingVertical: 11, marginTop: 12 },
   chatButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },

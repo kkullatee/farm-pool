@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MetricCard } from '@/components/MetricCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { VisualAssessmentSummary } from '@/components/VisualAssessmentSummary';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg, formatPercent } from '@/lib/format';
 import { colors } from '@/lib/theme';
@@ -96,6 +97,23 @@ export default function FarmerResultScreen() {
             <Text style={styles.profileValue}>${lastHarvest.minimumPricePerKg.toFixed(2)}/kg</Text>
           </View>
         </View>
+
+        <VisualAssessmentSummary harvest={lastHarvest} />
+
+        {lastHarvest.qualityAnswers && lastHarvest.qualityAnswers.length > 0 ? (
+          <View style={styles.profileCard}>
+            <Text style={styles.cardEyebrow}>SELF-REPORTED QUALITY</Text>
+            {lastHarvest.qualityAnswers.map((answer) => (
+              <View key={answer.id} style={styles.profileRow}>
+                <Text style={styles.profileLabel}>{answer.label}</Text>
+                <Text style={styles.profileValue}>
+                  {answer.value}
+                  {answer.unit ? ` ${answer.unit}` : ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.observationCard}>
           <Text style={styles.cardEyebrow}>ASSESSMENT SIGNALS</Text>

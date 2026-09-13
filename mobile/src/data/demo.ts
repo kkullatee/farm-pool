@@ -11,6 +11,23 @@ const assessment = (
   observations,
   warning: 'Condition is seller-provided. Check a sample with the seller before final acceptance.',
   source: 'demo',
+  photoStatus: 'No photo',
+  photoChecks: ['Demo listing has no local photo.'],
+  visualAssessment: {
+    containsProduce: false,
+    inappropriateOrIrrelevant: false,
+    detectedCrop: null,
+    cropAgreesWithListing: null,
+    observations: ['Demo quality notes are sample listing data, not a live visual photo screen.'],
+    damageOrDefectIndicators: [],
+    confidence: 0,
+    requiresAnotherPhoto: false,
+    retakeReason: null,
+    verificationStatus: 'unverified',
+    source: 'demo',
+    disclaimer:
+      'Visual assessment only: this photo does not prove Brix, internal quality, food safety, exact variety or freshness.',
+  },
 });
 
 export const demoHarvests: Harvest[] = [

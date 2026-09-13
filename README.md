@@ -12,8 +12,8 @@ buyer orders none of them could satisfy alone.
 
 ```
 buyer request
-  → STEP 1  deterministic filter      crop, variety, Brix, defects, firmness,
-            (matching.ts)             harvest-by-delivery date — hard rules
+  → STEP 1  deterministic filter      crop, variety, seller condition, timing,
+            (matching.ts)             quantity, radius and price — hard rules
   → STEP 2  candidate generation      enumerate minimal farm combinations that
             (candidates.ts)           cover the quantity; price ceiling enforced
   → STEP 3  ML ranking                logistic regression predicts fulfilment
