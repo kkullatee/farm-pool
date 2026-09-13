@@ -39,3 +39,19 @@ export const farmLabel = (
 };
 
 export const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
+
+/** Small crop icon shown beside crop names, marketplace-style. */
+export function cropEmoji(crop: string): string {
+  const byCrop: Record<string, string> = {
+    mango: '\u{1F96D}',
+    banana: '\u{1F34C}',
+    pineapple: '\u{1F34D}',
+    strawberry: '\u{1F353}',
+    watermelon: '\u{1F349}',
+    orange: '\u{1F34A}',
+    avocado: '\u{1F951}',
+    tomato: '\u{1F345}',
+    lime: '\u{1F34B}',
+  };
+  return byCrop[crop.toLowerCase()] ?? '\u{1F331}';
+}

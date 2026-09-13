@@ -12,12 +12,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MetricCard } from '@/components/MetricCard';
+import { ProduceThumb } from '@/components/ProduceThumb';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { VisualAssessmentSummary } from '@/components/VisualAssessmentSummary';
 import { useFarmPool } from '@/context/FarmPoolContext';
+<<<<<<< HEAD
 import { coordinatePoolPlan } from '@/lib/ai';
 import { farmLabel, formatKg, formatMoneyExact, formatPercent, formatPrice } from '@/lib/format';
 import { colors } from '@/lib/theme';
+=======
+import { farmLabel, formatKg, formatMoneyExact, formatPrice } from '@/lib/format';
+import { colors, fonts } from '@/lib/theme';
+>>>>>>> 66aca21 (Save local changes)
 import { FEATURE_LABELS } from '@/lib/features';
 import { modelEvaluation } from '@/lib/ranking';
 import {
@@ -729,51 +735,67 @@ function CombinationCard({
         !selectable && styles.comboCardDisabled,
       ]}>
       {!overCeiling && combo.rank === 1 ? (
-        <Text style={styles.comboRecommended}>Recommended</Text>
-      ) : null}
-      <View style={styles.comboTop}>
-        <View style={styles.comboNameWrap}>
-          <Text style={styles.comboHeadline}>
-            {formatKg(combo.fulfilledKg)} · {formatPrice(combo.cost.deliveredPerKg)}/kg delivered
-          </Text>
-          <Text style={styles.comboMeta}>
-            {combo.lots.length} supplier{combo.lots.length === 1 ? '' : 's'} · deliver by{' '}
-            {deliveryDate}
-          </Text>
-          <Text style={styles.comboFarms} numberOfLines={2}>
-            {combo.lots.map((lot) => farmLabel(lot.harvest, allHarvests)).join(', ')}
-          </Text>
-          {declinedNames.length > 0 ? (
-            <Text style={styles.comboDeclined}>
-              Includes {declinedNames.join(' and ')}, who declined this order
-            </Text>
-          ) : null}
+        <View style={styles.comboRecHeader}>
+          <Text style={styles.comboRecText}>Recommended</Text>
+          <Text style={styles.comboRecRank}>Rank {combo.rank}</Text>
         </View>
-        <View style={styles.comboScoreWrap}>
+      ) : null}
+      <View style={styles.comboThumbRow}>
+        {combo.lots.slice(0, 3).map((lot, index) => (
+          <View key={lot.harvest.id} style={index > 0 ? styles.comboThumbOverlap : null}>
+            <ProduceThumb harvest={lot.harvest} size={32} />
+          </View>
+        ))}
+        <Text style={styles.comboFarms} numberOfLines={2}>
+          {combo.lots.map((lot) => farmLabel(lot.harvest, allHarvests)).join(', ')}
+        </Text>
+      </View>
+      {declinedNames.length > 0 ? (
+        <Text style={styles.comboDeclined}>
+          Includes {declinedNames.join(' and ')}, who declined this order
+        </Text>
+      ) : null}
+
+      <View style={styles.comboStats}>
+        <View style={styles.comboStat}>
+          <Text style={styles.comboStatValue}>{formatKg(combo.fulfilledKg)}</Text>
+          <Text style={styles.comboStatLabel}>pooled</Text>
+        </View>
+        <View style={styles.comboStat}>
+          <Text style={styles.comboStatValue}>{formatPrice(combo.cost.deliveredPerKg)}</Text>
+          <Text style={styles.comboStatLabel}>per kg</Text>
+        </View>
+        <View style={styles.comboStat}>
+          <Text style={styles.comboStatValue}>{deliveryDate.slice(5)}</Text>
+          <Text style={styles.comboStatLabel}>delivery</Text>
+        </View>
+        <View style={styles.comboStat}>
           {overCeiling ? (
             <>
-              <Text style={styles.comboOver}>
+              <Text style={[styles.comboStatValue, styles.comboStatOver]}>
                 +{formatPrice(combo.cost.deliveredPerKg - ceiling)}
               </Text>
-              <Text style={styles.comboScoreLabel}>over limit</Text>
+              <Text style={styles.comboStatLabel}>over limit</Text>
             </>
           ) : (
             <>
-              <Text style={styles.comboScore}>
+              <Text style={[styles.comboStatValue, styles.comboStatGreen]}>
                 {Math.round(combo.fulfilmentProbability * 100)}%
               </Text>
-              <Text style={styles.comboScoreLabel}>fulfilment</Text>
+              <Text style={styles.comboStatLabel}>fulfilment</Text>
             </>
           )}
-          <Text style={[styles.comboSelectHint, selected && styles.comboSelectHintActive]}>
-            {selected ? 'Selected' : selectable ? 'Tap to choose' : ''}
-          </Text>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.whyToggle} onPress={() => setWhyOpen((open) => !open)}>
-        <Text style={styles.whyToggleText}>{whyOpen ? 'Hide details' : 'Why this plan?'}</Text>
-      </TouchableOpacity>
+      <View style={styles.comboFooter}>
+        <TouchableOpacity style={styles.whyToggle} onPress={() => setWhyOpen((open) => !open)}>
+          <Text style={styles.whyToggleText}>{whyOpen ? 'Hide details' : 'Why this plan?'}</Text>
+        </TouchableOpacity>
+        <Text style={[styles.comboSelectHint, selected && styles.comboSelectHintActive]}>
+          {selected ? 'Selected' : selectable ? 'Tap to choose' : ''}
+        </Text>
+      </View>
 
       {whyOpen ? (
         <View style={styles.whyBody}>
@@ -836,8 +858,8 @@ const styles = StyleSheet.create({
   sectionCount: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   pipelineCard: { backgroundColor: colors.ink, borderRadius: 12, padding: 15, marginBottom: 12 },
   pipelineBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rulesBadge: { color: colors.primarySoft, backgroundColor: 'rgba(255,255,255,0.12)', fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
-  mlBadge: { color: '#F5EFE2', backgroundColor: colors.primaryDark, fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
+  rulesBadge: { color: colors.onDark, backgroundColor: 'rgba(255,255,255,0.12)', fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
+  mlBadge: { color: colors.onDark, backgroundColor: colors.primaryDark, fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
   pipelineArrow: { color: '#8FA394', fontSize: 14, fontWeight: '800' },
   pipelineText: { color: '#C6D2C8', fontSize: 11, lineHeight: 16, marginTop: 10 },
   aiBadge: { color: colors.ink, backgroundColor: colors.primarySoft, fontSize: 8, fontWeight: '800', letterSpacing: 0.8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
@@ -855,14 +877,37 @@ const styles = StyleSheet.create({
   comboCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
   comboCardSelected: { borderColor: colors.primary, borderWidth: 2 },
   comboCardRecommended: { borderColor: colors.primary, borderWidth: 2 },
-  comboRecommended: { color: colors.primary, fontSize: 11, fontWeight: '800', marginBottom: 6 },
+  comboRecHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    marginHorizontal: -16,
+    marginTop: -16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+  },
+  comboRecText: { color: colors.cream, fontSize: 11, fontWeight: '800' },
+  comboRecRank: { color: colors.creamMuted, fontSize: 11 },
+  comboThumbRow: { flexDirection: 'row', alignItems: 'center' },
+  comboThumbOverlap: { marginLeft: -12 },
+  comboStats: { flexDirection: 'row', marginTop: 12 },
+  comboStat: { flex: 1 },
+  comboStatValue: { color: colors.ink, fontFamily: fonts.display, fontSize: 18, fontWeight: '700' },
+  comboStatGreen: { color: colors.primary },
+  comboStatOver: { color: colors.danger },
+  comboStatLabel: { color: colors.faint, fontSize: 10, marginTop: 2 },
+  comboFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   comboTop: { flexDirection: 'row', alignItems: 'center' },
   comboRank: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   comboRankSelected: { backgroundColor: colors.primary },
   comboRankText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   comboRankTextSelected: { color: colors.primaryDark },
   comboNameWrap: { flex: 1, paddingHorizontal: 10 },
-  comboFarms: { color: colors.ink, fontSize: 13, fontWeight: '800', lineHeight: 17 },
+  comboFarms: { color: colors.muted, fontSize: 11, lineHeight: 15, flex: 1, marginLeft: 9 },
   comboMeta: { color: colors.muted, fontSize: 12, marginTop: 3 },
   comboScoreWrap: { alignItems: 'center' },
   comboScore: { color: colors.primary, fontSize: 22, fontWeight: '800' },
@@ -968,8 +1013,8 @@ const styles = StyleSheet.create({
   assuranceTitle: { color: '#715112', fontSize: 14, fontWeight: '800' },
   assuranceText: { color: '#735D2B', fontSize: 11, lineHeight: 17, marginTop: 5 },
   primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 58, backgroundColor: colors.primary, borderRadius: 12, marginTop: 22, paddingHorizontal: 18 },
-  primaryButtonText: { color: colors.surface, fontSize: 16, fontWeight: '800' },
-  primaryButtonArrow: { position: 'absolute', right: 18, color: '#F5EFE2', fontSize: 29 },
+  primaryButtonText: { color: colors.cream, fontSize: 16, fontWeight: '800' },
+  primaryButtonArrow: { position: 'absolute', right: 18, color: '#F2F8FD', fontSize: 29 },
   disabledButton: { backgroundColor: colors.faint },
   secondaryButton: { alignItems: 'center', paddingVertical: 16 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '800' },

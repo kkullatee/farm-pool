@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   unitPillSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   unitText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-  unitTextSelected: { color: colors.surface },
+  unitTextSelected: { color: colors.cream },
   conversion: { color: colors.primary, fontSize: 11, lineHeight: 16, marginTop: 7, fontWeight: '600' },
   errorText: { color: colors.danger, fontSize: 11, lineHeight: 15, marginTop: 6 },
 });

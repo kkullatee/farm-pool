@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   column: { flex: 1 },
   conditionHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: -6, marginBottom: 16 },
   submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 12, marginTop: 14, paddingHorizontal: 18 },
-  submitText: { color: colors.surface, fontSize: 16, fontWeight: '800' },
-  submitArrow: { position: 'absolute', right: 18, color: '#F5EFE2', fontSize: 29 },
+  submitText: { color: colors.cream, fontSize: 16, fontWeight: '800' },
+  submitArrow: { position: 'absolute', right: 18, color: '#F2F8FD', fontSize: 29 },
   footnote: { color: colors.faint, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 13, paddingHorizontal: 15 },
 });

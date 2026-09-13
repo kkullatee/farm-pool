@@ -902,8 +902,8 @@ const styles = StyleSheet.create({
   unknownButton: { alignSelf: 'flex-start', backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 8, marginTop: -8, marginBottom: 14 },
   unknownButtonText: { color: colors.muted, fontSize: 11, fontWeight: '800' },
   submitButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 57, backgroundColor: colors.primary, borderRadius: 12, marginTop: 14, paddingHorizontal: 17 },
-  submitText: { color: colors.surface, fontSize: 16, fontWeight: '800' },
-  submitArrow: { position: 'absolute', right: 18, color: '#F5EFE2', fontSize: 29 },
+  submitText: { color: colors.cream, fontSize: 16, fontWeight: '800' },
+  submitArrow: { position: 'absolute', right: 18, color: '#F2F8FD', fontSize: 29 },
   disabled: { opacity: 0.62 },
   footnote: { color: colors.faint, fontSize: 10, lineHeight: 15, textAlign: 'center', paddingHorizontal: 12, marginTop: 13 },
 });

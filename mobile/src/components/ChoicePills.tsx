@@ -65,6 +65,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   selectedText: {
-    color: colors.surface,
+    color: colors.cream,
   },
 });

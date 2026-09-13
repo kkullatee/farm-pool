@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   mineBubble: { backgroundColor: colors.primary, borderBottomRightRadius: 5 },
   theirsBubble: { backgroundColor: colors.surface, borderBottomLeftRadius: 5 },
   bubbleText: { fontSize: 14, lineHeight: 19 },
-  mineText: { color: colors.surface },
+  mineText: { color: colors.cream },
   theirsText: { color: colors.ink },
   senderLabel: { color: colors.faint, fontSize: 9, marginTop: 3 },
   promptRow: { flexGrow: 0 },
@@ -225,5 +225,5 @@ const styles = StyleSheet.create({
   },
   sendButton: { backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 12 },
   sendDisabled: { opacity: 0.4 },
-  sendText: { color: colors.surface, fontSize: 14, fontWeight: '800' },
+  sendText: { color: colors.cream, fontSize: 14, fontWeight: '800' },
 });

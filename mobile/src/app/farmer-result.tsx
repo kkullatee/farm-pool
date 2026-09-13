@@ -190,8 +190,8 @@ const styles = StyleSheet.create({
   warningTitle: { color: colors.amber, fontSize: 14, fontWeight: '800' },
   warningText: { color: '#735D2B', fontSize: 12, lineHeight: 18, marginTop: 5 },
   primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 56, backgroundColor: colors.primary, borderRadius: 12, marginTop: 22, paddingHorizontal: 17 },
-  primaryButtonText: { color: colors.surface, fontSize: 15, fontWeight: '800' },
-  buttonArrow: { position: 'absolute', right: 18, color: '#F5EFE2', fontSize: 28 },
+  primaryButtonText: { color: colors.cream, fontSize: 15, fontWeight: '800' },
+  buttonArrow: { position: 'absolute', right: 18, color: '#F2F8FD', fontSize: 28 },
   secondaryButton: { alignItems: 'center', paddingVertical: 16 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '800' },
 });

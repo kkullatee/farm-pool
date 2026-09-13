@@ -53,7 +53,7 @@ export default function TabsLayout() {
           title: 'Orders',
           tabBarIcon: tabIcon('clipboard'),
           tabBarBadge: role === 'seller' && pendingForSeller > 0 ? pendingForSeller : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.primary, color: colors.surface, fontSize: 10 },
+          tabBarBadgeStyle: { backgroundColor: colors.primary, color: colors.cream, fontSize: 10 },
         }}
       />
       <Tabs.Screen

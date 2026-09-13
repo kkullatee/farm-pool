@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProduceThumb } from '@/components/ProduceThumb';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg, formatPrice } from '@/lib/format';
-import { colors, radius, statusTint } from '@/lib/theme';
+import { colors, fonts, radius, statusTint } from '@/lib/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -80,21 +80,15 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.topBar}>
-          <View style={styles.brand}>
-            <View style={styles.logoMark}>
-              <Text style={styles.logoMarkText}>FP</Text>
-            </View>
+        <View style={styles.band}>
+          <View style={styles.topBar}>
             <Text style={styles.wordmark}>FarmPool</Text>
+            <TouchableOpacity style={styles.roleChip} onPress={() => router.push('/account')}>
+              <Text style={styles.roleChipText}>
+                {role === 'buyer' ? 'Buyer' : (activeSellerFarm ?? 'Seller')}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.roleChip} onPress={() => router.push('/account')}>
-            <Text style={styles.roleChipText}>
-              {role === 'buyer' ? 'Buyer' : (activeSellerFarm ?? 'Seller')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.hero}>
           <Text style={styles.heroHeading}>Small farms.{'\n'}Bigger opportunities.</Text>
           <Text style={styles.heroSub}>
             Pool fragmented farm supply into reliable commercial orders.
@@ -225,47 +219,50 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     alignSelf: 'center',
   },
+  band: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 18,
+    marginTop: 6,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
   },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  logoMark: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: colors.primaryDark,
-    alignItems: 'center',
-    justifyContent: 'center',
+  wordmark: {
+    color: colors.cream,
+    fontFamily: fonts.display,
+    fontSize: 21,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
-  logoMarkText: { color: '#F5EFE2', fontSize: 12, fontWeight: '800', letterSpacing: -0.3 },
-  wordmark: { color: colors.ink, fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
   roleChip: {
-    borderColor: colors.border,
+    borderColor: '#3E7A52',
     borderWidth: 1,
     borderRadius: radius.control,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: colors.surface,
   },
-  roleChipText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
-  hero: { marginTop: 20, marginBottom: 4 },
+  roleChipText: { color: colors.cream, fontSize: 12, fontWeight: '600' },
   heroHeading: {
-    color: colors.ink,
-    fontSize: 37,
-    fontWeight: '800',
-    lineHeight: 41,
-    letterSpacing: -1.4,
+    color: colors.cream,
+    fontFamily: fonts.display,
+    fontSize: 30,
+    fontWeight: '700',
+    lineHeight: 36,
+    letterSpacing: -0.4,
+    marginTop: 18,
   },
   heroSub: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
+    color: colors.creamMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 8,
   },
-  sectionTitle: { color: colors.ink, fontSize: 14, fontWeight: '700', marginTop: 22, marginBottom: 8 },
+  sectionTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 17, fontWeight: '700', marginTop: 22, marginBottom: 8 },
   sectionTitleInRow: { marginTop: 0, marginBottom: 0 },
   sectionRow: {
     flexDirection: 'row',
@@ -308,14 +305,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.surface,
   },
-  roleIconTextLight: { color: '#F5EFE2', fontSize: 16, fontWeight: '800' },
-  roleIconTextDark: { color: colors.primary, fontSize: 16, fontWeight: '800' },
+  roleIconTextLight: { color: colors.cream, fontSize: 16, fontWeight: '800' },
+  roleIconTextDark: { color: colors.primaryDark, fontSize: 16, fontWeight: '800' },
   roleCopy: { flex: 1, paddingHorizontal: 13 },
-  roleTitlePrimary: { color: '#F5EFE2', fontSize: 17, fontWeight: '800' },
-  roleTextPrimary: { color: '#CBDCC9', fontSize: 12, marginTop: 3 },
+  roleTitlePrimary: { color: colors.cream, fontSize: 17, fontWeight: '800' },
+  roleTextPrimary: { color: colors.creamMuted, fontSize: 12, marginTop: 3 },
   roleTitleSecondary: { color: colors.primaryDark, fontSize: 17, fontWeight: '800' },
   roleTextSecondary: { color: colors.muted, fontSize: 12, marginTop: 3 },
-  roleArrowPrimary: { color: '#F5EFE2', fontSize: 26 },
+  roleArrowPrimary: { color: colors.cream, fontSize: 26 },
   roleArrowSecondary: { color: colors.primary, fontSize: 26 },
   card: {
     backgroundColor: colors.surface,

@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { colors } from '@/lib/theme';
+import { colors, fonts } from '@/lib/theme';
 
 type Props = {
   /** Kept for compatibility; no longer rendered. Titles carry the screen. */
@@ -45,9 +45,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.ink,
-    fontSize: 21,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontFamily: fonts.display,
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.2,
     marginTop: 2,
   },
   description: {

@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   selectedCell: { backgroundColor: colors.primary },
   dayText: { color: colors.ink, fontSize: 14, fontWeight: '700' },
   todayText: { color: colors.primary },
-  selectedText: { color: colors.surface, fontWeight: '900' },
+  selectedText: { color: colors.cream, fontWeight: '900' },
   closeButton: { alignItems: 'center', paddingVertical: 12, marginTop: 6 },
   closeText: { color: colors.primary, fontSize: 14, fontWeight: '800' },
 });

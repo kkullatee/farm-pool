@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '800' },
   emptyText: { color: colors.muted, fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 8 },
   primaryButton: { alignItems: 'center', justifyContent: 'center', minHeight: 50, backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 22, marginTop: 18 },
-  primaryButtonText: { color: colors.surface, fontSize: 14, fontWeight: '800' },
+  primaryButtonText: { color: colors.cream, fontSize: 14, fontWeight: '800' },
   card: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginTop: 12 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   cardCopy: { flex: 1, paddingRight: 10 },

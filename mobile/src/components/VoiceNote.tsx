@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   recordButton: {
     minWidth: 66,
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 11,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.danger,
   },
   recordText: {
-    color: colors.surface,
+    color: colors.onDark,
     fontSize: 13,
     fontWeight: '800',
   },
