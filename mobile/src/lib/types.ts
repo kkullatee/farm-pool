@@ -57,7 +57,7 @@ export type QualityAssessment = {
   confidence: number;
   observations: string[];
   warning: string;
-  source: 'openai' | 'demo';
+  source: 'anthropic' | 'demo';
   /** Photo screening result. Anything except Accepted is never shown to buyers. */
   photoStatus?: PhotoStatus;
   photoChecks?: string[];
@@ -92,7 +92,7 @@ export type VoiceListing = {
   status: VoiceStatus;
   transcript: string | null;
   extraction: VoiceExtraction | null;
-  transcriptSource: 'elevenlabs' | 'openai' | 'demo' | 'unavailable';
+  transcriptSource: 'elevenlabs' | 'demo' | 'unavailable';
   extractionSource: 'claude' | 'demo' | 'unavailable';
   /** Plain-language detail for the UI, e.g. which part failed and why. */
   note: string;

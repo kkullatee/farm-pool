@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import io
 import os
 from typing import Literal
 
@@ -21,18 +20,24 @@ class QualityAssessment(BaseModel):
     confidence: float = Field(ge=0, le=1)
     observations: list[str]
     warning: str
-    source: Literal["openai", "demo"]
+    source: Literal["anthropic", "demo"]
     photoStatus: PhotoStatus
     photoChecks: list[str] = []
 
 
-class VisionAssessment(BaseModel):
-    grade: Literal["Premium", "Standard", "Processing"]
-    visual_score: int = Field(ge=0, le=100)
+class PhotoScreen(BaseModel):
+    """Strict schema for the vision model's photo screen.
+
+    The model only screens the photo (produce visible, plausible crop match,
+    usable image). It never grades quality, freshness or condition.
+    """
+
+    status: Literal["Accepted", "Retake required", "Manual review"]
+    produce_visible: bool
+    crop_match_plausible: bool
+    image_usable: bool
+    reason: str = Field(min_length=1, max_length=300)
     confidence: float = Field(ge=0, le=1)
-    observations: list[str] = Field(min_length=2, max_length=5)
-    photo_status: Literal["Accepted", "Retake required", "Manual review"]
-    photo_checks: list[str] = Field(min_length=1, max_length=5)
 
 
 class VoiceExtraction(BaseModel):
@@ -58,7 +63,7 @@ class VoiceExtraction(BaseModel):
 class VoiceListingResponse(BaseModel):
     transcript: str | None
     extraction: VoiceExtraction | None
-    transcript_source: Literal["elevenlabs", "openai", "unavailable"]
+    transcript_source: Literal["elevenlabs", "unavailable"]
     extraction_source: Literal["claude", "unavailable"]
 
 
@@ -117,74 +122,111 @@ def demo_assessment(*, condition: str, has_image: bool) -> QualityAssessment:
     )
 
 
-def openai_assessment(
-    *,
-    image_bytes: bytes,
-    content_type: str,
-    crop: str,
-    variety: str,
-    condition: str,
-    notes: str,
-) -> QualityAssessment:
-    from openai import OpenAI
+ANTHROPIC_VISION_MODEL = "claude-opus-4-8"
 
-    model = os.environ["OPENAI_MODEL"]
+# Media types the Anthropic vision API accepts.
+IMAGE_MEDIA_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
+
+def screen_photo_with_claude(
+    *, image_bytes: bytes, content_type: str, crop: str, variety: str
+) -> PhotoScreen:
+    """Run the three-check photo screen. Raises on any failure; the caller
+    downgrades to manual review."""
+    from anthropic import Anthropic
+
+    media_type = content_type if content_type in IMAGE_MEDIA_TYPES else "image/jpeg"
     encoded = base64.b64encode(image_bytes).decode("ascii")
-    data_url = f"data:{content_type};base64,{encoded}"
     prompt = f"""
-You are screening a produce photo for the FarmPool marketplace. Inspect only externally visible
-evidence in the image. Do not claim to see taste, food safety, internal damage, origin or anything
-that cannot be observed. Treat the seller-entered condition as unverified information.
+You are screening a produce photo for the FarmPool marketplace. Check exactly three things:
 
-Lot data:
-- Crop: {crop}
-- Variety: {variety}
-- Seller-reported condition: {condition}
-- Farmer notes: {notes or "None"}
+1. produce_visible: is produce actually visible in the photo?
+2. crop_match_plausible: could it plausibly be {crop} ({variety})? Flag only clear mismatches.
+3. image_usable: is the image sharp and well lit enough to be useful to a buyer?
 
-Return:
-1. A preliminary grade, a 0-100 visual-condition score, calibrated confidence, and 2-5 short
-   observations.
-2. photo_status, judged strictly:
-   - "Accepted": the image clearly shows produce that plausibly matches the stated crop, with
-     enough lighting and sharpness to judge condition.
-   - "Retake required": no produce visible, wrong subject, too dark, too blurry, or too far away.
-   - "Manual review": you cannot tell, the content seems unrelated or inappropriate, or anything
-     else prevents a confident call.
-3. photo_checks: 1-5 short findings behind that status (produce visible or not, crop match,
-   lighting, clarity, anything concerning).
+status, judged strictly:
+- "Accepted" only when all three checks pass.
+- "Retake required" when no produce is visible, the subject is wrong, or the image is too dark,
+  too blurry or too far away.
+- "Manual review" when you cannot tell, or anything else prevents a confident call.
+
+Do not judge quality, freshness, ripeness, disease or condition. You are only screening whether
+the photo is usable. reason: one short plain sentence the farmer can act on. confidence: your
+calibrated 0-1 confidence in this screen.
 """.strip()
 
-    client = OpenAI()
-    response = client.responses.parse(
-        model=model,
-        input=[
+    client = Anthropic(timeout=45.0)
+    response = client.messages.parse(
+        model=ANTHROPIC_VISION_MODEL,
+        max_tokens=1024,
+        messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": data_url, "detail": "high"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": encoded,
+                        },
+                    },
+                    {"type": "text", "text": prompt},
                 ],
             }
         ],
-        text_format=VisionAssessment,
+        output_format=PhotoScreen,
     )
-    parsed = response.output_parsed
+    parsed = response.parsed_output
     if parsed is None:
-        raise ValueError("The model did not return a quality assessment")
+        raise ValueError("The model did not return a photo screen")
+
+    # Never fake an Accepted: if the model says Accepted but any check failed,
+    # the result is inconsistent and goes to manual review instead.
+    if parsed.status == "Accepted" and not (
+        parsed.produce_visible and parsed.crop_match_plausible and parsed.image_usable
+    ):
+        return parsed.model_copy(update={"status": "Manual review"})
+    return parsed
+
+
+def anthropic_assessment(*, screen: PhotoScreen, condition: str, crop: str) -> QualityAssessment:
+    """Map a photo screen onto the response shape the app already uses.
+
+    Grade and score come from the seller-provided condition, exactly like the
+    demo path: the AI screens the photo, it does not grade produce quality.
+    """
+    by_condition = {
+        "Premium": ("Premium", 91),
+        "Standard": ("Standard", 82),
+        "Economy": ("Processing", 68),
+    }
+    grade, visual_score = by_condition.get(condition, ("Standard", 78))
+
+    photo_checks = [
+        "Produce visible in photo" if screen.produce_visible else "No produce clearly visible",
+        f"Looks consistent with {crop}"
+        if screen.crop_match_plausible
+        else f"Does not clearly match {crop}",
+        "Image sharp and well lit" if screen.image_usable else "Image too dark, blurry or far away",
+        screen.reason,
+    ]
 
     return QualityAssessment(
-        grade=parsed.grade,
-        visualScore=parsed.visual_score,
-        confidence=parsed.confidence,
-        observations=parsed.observations,
+        grade=grade,
+        visualScore=visual_score,
+        confidence=screen.confidence,
+        observations=[
+            f"Photo check: {screen.reason}",
+            f"Condition reported by the seller: {condition}",
+        ],
         warning=(
-            "AI reviewed external appearance only. Condition is confirmed with the seller and "
-            "at pickup, not by the photo."
+            "AI screened the photo only (produce visible, crop match, image usable). "
+            "Condition is confirmed with the seller and at pickup, not by the photo."
         ),
-        source="openai",
-        photoStatus=parsed.photo_status,
-        photoChecks=parsed.photo_checks,
+        source="anthropic",
+        photoStatus=screen.status,
+        photoChecks=photo_checks,
     )
 
 
@@ -230,19 +272,6 @@ def transcribe_audio(audio: bytes, filename: str, content_type: str) -> tuple[st
         except Exception:
             pass
 
-    openai_model = os.getenv("OPENAI_TRANSCRIBE_MODEL")
-    if os.getenv("OPENAI_API_KEY") and openai_model:
-        try:
-            from openai import OpenAI
-
-            buffer = io.BytesIO(audio)
-            buffer.name = filename
-            result = OpenAI().audio.transcriptions.create(model=openai_model, file=buffer)
-            if result.text:
-                return result.text, "openai"
-        except Exception:
-            pass
-
     return None, "unavailable"
 
 
@@ -284,11 +313,8 @@ def extract_listing(transcript: str) -> tuple[VoiceExtraction | None, str]:
 def health() -> dict[str, object]:
     return {
         "ok": True,
-        "visionAI": bool(os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_MODEL")),
-        "voiceSTT": bool(
-            os.getenv("ELEVENLABS_API_KEY")
-            or (os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_TRANSCRIBE_MODEL"))
-        ),
+        "visionAI": bool(os.getenv("ANTHROPIC_API_KEY")),
+        "voiceSTT": bool(os.getenv("ELEVENLABS_API_KEY")),
         "voiceExtraction": bool(os.getenv("ANTHROPIC_API_KEY")),
     }
 
@@ -302,23 +328,20 @@ async def analyse_produce(
     file: UploadFile | None = File(default=None),
 ) -> QualityAssessment:
     image_bytes = await file.read() if file else b""
-    can_use_ai = bool(
-        image_bytes and os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_MODEL")
-    )
+    can_use_ai = bool(image_bytes and os.getenv("ANTHROPIC_API_KEY"))
 
     if can_use_ai:
         try:
-            return openai_assessment(
+            screen = screen_photo_with_claude(
                 image_bytes=image_bytes,
                 content_type=(file.content_type or "image/jpeg") if file else "image/jpeg",
                 crop=crop,
                 variety=variety,
-                condition=condition,
-                notes=notes,
             )
+            return anthropic_assessment(screen=screen, condition=condition, crop=crop)
         except Exception:
-            # The demo must keep working if the network or model is unavailable.
-            # An AI refusal or failure also lands here: the photo goes to manual review.
+            # Any failure, refusal, timeout or invalid model output lands here:
+            # the photo goes to manual review, never a faked result.
             pass
 
     return demo_assessment(condition=condition, has_image=bool(image_bytes))

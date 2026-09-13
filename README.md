@@ -44,10 +44,21 @@ npm install
 npm start          # Expo Go
 ```
 
-Optional AI backend (photo grading / transcription):
+Optional AI backend (photo screening / voice transcription / listing extraction):
 
 ```bash
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
+
+Create `backend/.env` with the two keys the live AI features need:
+
+```env
+ELEVENLABS_API_KEY=...   # voice transcription
+ANTHROPIC_API_KEY=...    # photo screening and listing extraction (Claude)
+```
+
+Without keys the app still works: photos go to manual review and the voice
+flow offers a clearly labeled sample. Point the app at the backend with
+`EXPO_PUBLIC_API_URL` in `mobile/.env`.

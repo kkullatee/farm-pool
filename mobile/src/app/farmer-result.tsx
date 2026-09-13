@@ -35,7 +35,7 @@ export default function FarmerResultScreen() {
   };
   const sourceLabel =
     AI_STATUS_LABEL[assessment.aiStatus ?? ''] ??
-    (assessment.source === 'openai' ? 'Live AI image review' : 'Offline demo model');
+    (assessment.source === 'anthropic' ? 'Live AI image review' : 'Offline demo model');
 
   return (
     <SafeAreaView style={styles.safeArea}>

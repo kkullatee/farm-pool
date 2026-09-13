@@ -69,10 +69,10 @@ export async function analyseProduce(input: AnalysisInput): Promise<QualityAsses
     });
     if (!response.ok) throw new Error(`Analysis failed with ${response.status}`);
     const result = (await response.json()) as QualityAssessment;
-    // The backend answers with source 'openai' when the vision model really
+    // The backend answers with source 'anthropic' when the vision model really
     // ran, and 'demo' when it could not (no key, model error). Keep that
     // distinction visible instead of pretending both are the same.
-    if (result.source === 'openai') return { ...result, aiStatus: 'live' };
+    if (result.source === 'anthropic') return { ...result, aiStatus: 'live' };
     return { ...result, aiStatus: 'vision-unavailable' };
   } catch {
     return { ...localAssessment(input), aiStatus: 'backend-unreachable' };
@@ -107,7 +107,7 @@ export function demoVoiceListing(): VoiceListing {
 
 /**
  * Voice to listing: sends the recording to the backend, which transcribes it
- * (ElevenLabs, or OpenAI as fallback) and extracts listing fields with Claude.
+ * (ElevenLabs) and extracts listing fields with Claude.
  * Falls back to a clearly labeled sample when no backend is configured, so the
  * demo flow always works.
  */
@@ -130,7 +130,7 @@ export async function voiceToListing(uri: string): Promise<VoiceListing> {
     const result = (await response.json()) as {
       transcript: string | null;
       extraction: VoiceListing['extraction'];
-      transcript_source: 'elevenlabs' | 'openai' | 'unavailable';
+      transcript_source: 'elevenlabs' | 'unavailable';
       extraction_source: 'claude' | 'unavailable';
     };
 
