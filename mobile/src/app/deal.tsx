@@ -8,7 +8,12 @@ import { colors } from '@/lib/theme';
 
 export default function DealScreen() {
   const router = useRouter();
-  const { plan, dealApproved, approveDeal, resetDemo } = useFarmPool();
+  const { plan, dealApproved, approveDeal, resetDemo, orderRequests } = useFarmPool();
+
+  const requests = plan ? orderRequests.filter((r) => r.orderId === plan.order.id) : [];
+  const requestFor = (harvestId: string) => requests.find((r) => r.harvestId === harvestId);
+  const allAccepted = requests.length > 0 && requests.every((r) => r.status === 'Accepted');
+  const anyDeclined = requests.some((r) => r.status === 'Declined');
 
   if (!plan) {
     return (
@@ -34,8 +39,24 @@ export default function DealScreen() {
         <View style={styles.successIcon}>
           <Text style={styles.successCheck}>✓</Text>
         </View>
-        <Text style={styles.eyebrow}>{dealApproved ? 'ORDER APPROVED' : 'PLAN READY'}</Text>
-        <Text style={styles.title}>{dealApproved ? 'FarmPool is coordinating the deal.' : 'Approve to start coordination.'}</Text>
+        <Text style={styles.eyebrow}>
+          {!dealApproved
+            ? 'PLAN READY'
+            : allAccepted
+              ? 'ORDER CONFIRMED'
+              : anyDeclined
+                ? 'ACTION NEEDED'
+                : 'AWAITING SELLER CONFIRMATIONS'}
+        </Text>
+        <Text style={styles.title}>
+          {!dealApproved
+            ? 'Approve to start coordination.'
+            : allAccepted
+              ? 'All sellers confirmed. FarmPool is coordinating the deal.'
+              : anyDeclined
+                ? 'A seller declined. Pick another pool or talk to them.'
+                : 'Each seller has been asked to confirm their share.'}
+        </Text>
         <Text style={styles.description}>
           One buyer agreement is now translated into clear farm allocations, checks, collection
           stops and payment records.
@@ -48,7 +69,15 @@ export default function DealScreen() {
               <Text style={styles.orderName}>{plan.order.businessName}</Text>
             </View>
             <View style={styles.approvedPill}>
-              <Text style={styles.approvedText}>{dealApproved ? 'APPROVED' : 'PENDING'}</Text>
+              <Text style={styles.approvedText}>
+                {!dealApproved
+                  ? 'PENDING'
+                  : allAccepted
+                    ? 'CONFIRMED'
+                    : anyDeclined
+                      ? 'ACTION NEEDED'
+                      : 'AWAITING SELLERS'}
+              </Text>
             </View>
           </View>
           <View style={styles.orderStats}>
@@ -76,7 +105,26 @@ export default function DealScreen() {
               <Text style={styles.payoutMarkText}>{lot.harvest.farmerName.slice(0, 1)}</Text>
             </View>
             <View style={styles.payoutCopy}>
-              <Text style={styles.payoutName}>{lot.harvest.farmerName}</Text>
+              <View style={styles.payoutNameRow}>
+                <Text style={styles.payoutName}>{lot.harvest.farmerName}</Text>
+                {requestFor(lot.harvest.id) ? (
+                  <View
+                    style={[
+                      styles.sellerStatusPill,
+                      requestFor(lot.harvest.id)!.status === 'Accepted' && styles.sellerStatusAccepted,
+                      requestFor(lot.harvest.id)!.status === 'Declined' && styles.sellerStatusDeclined,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.sellerStatusText,
+                        requestFor(lot.harvest.id)!.status === 'Accepted' && styles.sellerStatusTextAccepted,
+                        requestFor(lot.harvest.id)!.status === 'Declined' && styles.sellerStatusTextDeclined,
+                      ]}>
+                      {requestFor(lot.harvest.id)!.status}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.payoutDetail}>{formatKg(lot.allocatedKg)} · {lot.harvest.location}</Text>
               <Text style={styles.payoutLot}>{lotCode(lot.harvest.id, index + 1)} · scanned at pickup and delivery</Text>
             </View>
@@ -86,6 +134,31 @@ export default function DealScreen() {
             </View>
           </View>
         ))}
+
+        {dealApproved && !allAccepted && !anyDeclined ? (
+          <View style={styles.switchHint}>
+            <Text style={styles.switchHintText}>
+              Waiting on sellers. In this demo, switch to Seller mode on the home screen to answer
+              the requests yourself.
+            </Text>
+          </View>
+        ) : null}
+
+        {anyDeclined ? (
+          <View style={styles.declinedCard}>
+            <Text style={styles.declinedTitle}>A seller declined their share</Text>
+            <Text style={styles.declinedText}>
+              The order is not stuck. Pick a different pool from the supply plan (the reserve farms
+              are still available), or chat with the seller to sort it out. Approving a new pool
+              sends fresh requests.
+            </Text>
+            <TouchableOpacity
+              style={styles.declinedButton}
+              onPress={() => router.replace('/matches')}>
+              <Text style={styles.declinedButtonText}>Pick another pool</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <View style={styles.inspectionCard}>
           <Text style={styles.inspectionEyebrow}>PICKUP CHECK (SAMPLE RECORD)</Text>
@@ -226,6 +299,20 @@ const styles = StyleSheet.create({
   payoutCopy: { flex: 1, paddingHorizontal: 10 },
   payoutName: { color: colors.ink, fontSize: 12, fontWeight: '900' },
   payoutDetail: { color: colors.faint, fontSize: 9, marginTop: 3 },
+  payoutNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  sellerStatusPill: { backgroundColor: colors.amberSoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  sellerStatusAccepted: { backgroundColor: colors.primarySoft },
+  sellerStatusDeclined: { backgroundColor: colors.dangerSoft },
+  sellerStatusText: { color: '#715112', fontSize: 8, fontWeight: '900' },
+  sellerStatusTextAccepted: { color: colors.primaryDark },
+  sellerStatusTextDeclined: { color: colors.danger },
+  switchHint: { backgroundColor: colors.amberSoft, borderRadius: 15, padding: 13, marginTop: 4, marginBottom: 8 },
+  switchHintText: { color: '#715112', fontSize: 12, lineHeight: 18 },
+  declinedCard: { backgroundColor: colors.dangerSoft, borderRadius: 17, padding: 15, marginTop: 4, marginBottom: 8 },
+  declinedTitle: { color: colors.danger, fontSize: 14, fontWeight: '900' },
+  declinedText: { color: '#7A4A42', fontSize: 12, lineHeight: 18, marginTop: 5 },
+  declinedButton: { alignItems: 'center', backgroundColor: colors.danger, borderRadius: 12, paddingVertical: 11, marginTop: 11 },
+  declinedButtonText: { color: colors.surface, fontSize: 13, fontWeight: '900' },
   payoutLot: { color: colors.primary, fontSize: 9, fontWeight: '700', marginTop: 3 },
   inspectionCard: { backgroundColor: colors.surface, borderRadius: 21, padding: 18, marginTop: 4 },
   inspectionEyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },

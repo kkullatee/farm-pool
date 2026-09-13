@@ -2,14 +2,16 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RoleSwitch } from '@/components/RoleSwitch';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg } from '@/lib/format';
 import { colors, shadow } from '@/lib/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { harvests, runDemo } = useFarmPool();
+  const { harvests, runDemo, role, orderRequests } = useFarmPool();
   const availableKg = harvests.reduce((sum, harvest) => sum + harvest.quantityKg, 0);
+  const pendingRequests = orderRequests.filter((request) => request.status === 'Pending').length;
 
   function launchDemo() {
     runDemo();
@@ -29,10 +31,7 @@ export default function HomeScreen() {
               <Text style={styles.logoSub}>AI SUPPLY NETWORK</Text>
             </View>
           </View>
-          <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>DEMO LIVE</Text>
-          </View>
+          <RoleSwitch />
         </View>
 
         <View style={styles.hero}>
@@ -73,6 +72,26 @@ export default function HomeScreen() {
         </View>
 
         <Text style={styles.question}>Choose your side of the market</Text>
+
+        {role === 'seller' ? (
+          <TouchableOpacity
+            style={styles.requestsButton}
+            activeOpacity={0.85}
+            onPress={() => router.push('/seller-orders')}>
+            <View style={styles.requestsIcon}>
+              <Text style={styles.requestsIconText}>{pendingRequests > 0 ? pendingRequests : '✓'}</Text>
+            </View>
+            <View style={styles.roleCopy}>
+              <Text style={styles.requestsTitle}>Order requests</Text>
+              <Text style={styles.requestsText}>
+                {pendingRequests > 0
+                  ? `${pendingRequests} new request${pendingRequests === 1 ? '' : 's'} from buyers`
+                  : 'No new requests right now'}
+              </Text>
+            </View>
+            <Text style={styles.requestsArrow}>›</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           style={styles.primaryButton}
@@ -139,9 +158,12 @@ const styles = StyleSheet.create({
   logoLetters: { color: colors.lime, fontSize: 13, fontWeight: '900', letterSpacing: -0.5 },
   logo: { color: colors.ink, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   logoSub: { color: colors.primary, fontSize: 8, fontWeight: '800', letterSpacing: 1.1 },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 8 },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary, marginRight: 6 },
-  liveText: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  requestsButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.ink, borderRadius: 19, padding: 16, marginBottom: 11 },
+  requestsIcon: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.lime },
+  requestsIconText: { color: colors.primaryDark, fontSize: 16, fontWeight: '900' },
+  requestsTitle: { color: colors.surface, fontSize: 17, fontWeight: '900' },
+  requestsText: { color: '#BFC9C0', fontSize: 11, lineHeight: 15, marginTop: 3 },
+  requestsArrow: { color: colors.lime, fontSize: 28 },
   hero: { marginTop: 42 },
   eyebrow: { color: colors.primary, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
   heading: { color: colors.ink, fontSize: 43, fontWeight: '900', lineHeight: 47, letterSpacing: -1.7, marginTop: 10 },

@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RoleSwitch } from '@/components/RoleSwitch';
 import { useFarmPool } from '@/context/FarmPoolContext';
 import { formatKg } from '@/lib/format';
 import { colors } from '@/lib/theme';
 
-const QUICK_PROMPTS = [
+const BUYER_PROMPTS = [
   'Can you send more details about the produce?',
   'How ripe is this batch?',
   'Are there any visible defects?',
@@ -25,10 +26,17 @@ const QUICK_PROMPTS = [
   'Can you provide recent photos?',
 ];
 
+const SELLER_PROMPTS = [
+  'Harvested this week, very fresh.',
+  'Yes, that works for me.',
+  'I can send photos tomorrow morning.',
+  'Pickup on that date is fine.',
+];
+
 export default function ChatScreen() {
   const router = useRouter();
   const { harvestId } = useLocalSearchParams<{ harvestId: string }>();
-  const { harvests, chats, sendChatMessage } = useFarmPool();
+  const { harvests, chats, sendChatMessage, role, order } = useFarmPool();
   const [draft, setDraft] = useState('');
 
   const harvest = harvests.find((entry) => entry.id === harvestId);
@@ -62,13 +70,22 @@ export default function ChatScreen() {
             <Text style={styles.backText}>‹</Text>
           </TouchableOpacity>
           <View style={styles.headerCopy}>
-            <Text style={styles.headerName}>{harvest.farmerName}</Text>
+            <Text style={styles.headerName}>
+              {role === 'buyer' ? harvest.farmerName : (order?.businessName ?? 'Buyer')}
+            </Text>
             <Text style={styles.headerLot}>
               {harvest.crop} · {harvest.variety} · {formatKg(harvest.quantityKg)} ·{' '}
               {harvest.condition} (seller-provided) · {harvest.verification ?? 'Self-reported'}
             </Text>
           </View>
+          <RoleSwitch />
         </View>
+
+        {role === 'seller' ? (
+          <View style={styles.roleBanner}>
+            <Text style={styles.roleBannerText}>You are replying as {harvest.farmerName}</Text>
+          </View>
+        ) : null}
 
         <ScrollView
           style={styles.thread}
@@ -76,8 +93,9 @@ export default function ChatScreen() {
           showsVerticalScrollIndicator={false}>
           <View style={styles.noticeCard}>
             <Text style={styles.noticeText}>
-              Ask the seller anything before you approve the pool: ripeness, defects, photos,
-              storage. Replies show here.
+              {role === 'buyer'
+                ? 'Ask the seller anything before you approve the pool: ripeness, defects, photos, storage.'
+                : 'Answer the buyer directly. Both sides see the full conversation.'}
             </Text>
           </View>
 
@@ -85,22 +103,21 @@ export default function ChatScreen() {
             <Image source={{ uri: harvest.imageUri }} style={styles.lotPhoto} />
           ) : null}
 
-          {messages.map((message) => (
-            <View
-              key={message.id}
-              style={[styles.bubble, message.sender === 'buyer' ? styles.buyerBubble : styles.sellerBubble]}>
-              <Text
-                style={[
-                  styles.bubbleText,
-                  message.sender === 'buyer' ? styles.buyerBubbleText : styles.sellerBubbleText,
-                ]}>
-                {message.text}
-              </Text>
-            </View>
-          ))}
-          {messages.length > 0 ? (
-            <Text style={styles.sentNote}>Sent to {harvest.farmerName}.</Text>
-          ) : null}
+          {messages.map((message) => {
+            const mine = message.sender === role;
+            return (
+              <View key={message.id} style={mine ? styles.mineWrap : styles.theirsWrap}>
+                <View style={[styles.bubble, mine ? styles.mineBubble : styles.theirsBubble]}>
+                  <Text style={[styles.bubbleText, mine ? styles.mineText : styles.theirsText]}>
+                    {message.text}
+                  </Text>
+                </View>
+                <Text style={styles.senderLabel}>
+                  {message.sender === 'buyer' ? 'Buyer' : harvest.farmerName}
+                </Text>
+              </View>
+            );
+          })}
         </ScrollView>
 
         <ScrollView
@@ -109,7 +126,7 @@ export default function ChatScreen() {
           style={styles.promptRow}
           contentContainerStyle={styles.promptContent}
           keyboardShouldPersistTaps="handled">
-          {QUICK_PROMPTS.map((prompt) => (
+          {(role === 'buyer' ? BUYER_PROMPTS : SELLER_PROMPTS).map((prompt) => (
             <TouchableOpacity key={prompt} style={styles.promptChip} onPress={() => send(prompt)}>
               <Text style={styles.promptText}>{prompt}</Text>
             </TouchableOpacity>
@@ -161,13 +178,17 @@ const styles = StyleSheet.create({
   noticeCard: { backgroundColor: colors.primarySoft, borderRadius: 15, padding: 13, marginBottom: 14 },
   noticeText: { color: '#47684F', fontSize: 12, lineHeight: 18 },
   lotPhoto: { width: '100%', height: 160, borderRadius: 15, marginBottom: 14 },
-  bubble: { maxWidth: '82%', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10, marginBottom: 8 },
-  buyerBubble: { alignSelf: 'flex-end', backgroundColor: colors.primary, borderBottomRightRadius: 5 },
-  sellerBubble: { alignSelf: 'flex-start', backgroundColor: colors.surface, borderBottomLeftRadius: 5 },
+  roleBanner: { backgroundColor: colors.amberSoft, paddingHorizontal: 16, paddingVertical: 8 },
+  roleBannerText: { color: '#715112', fontSize: 11, fontWeight: '800' },
+  mineWrap: { alignItems: 'flex-end', marginBottom: 9 },
+  theirsWrap: { alignItems: 'flex-start', marginBottom: 9 },
+  bubble: { maxWidth: '82%', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10 },
+  mineBubble: { backgroundColor: colors.primary, borderBottomRightRadius: 5 },
+  theirsBubble: { backgroundColor: colors.surface, borderBottomLeftRadius: 5 },
   bubbleText: { fontSize: 14, lineHeight: 19 },
-  buyerBubbleText: { color: colors.surface },
-  sellerBubbleText: { color: colors.ink },
-  sentNote: { color: colors.faint, fontSize: 10, textAlign: 'right', marginTop: 2 },
+  mineText: { color: colors.surface },
+  theirsText: { color: colors.ink },
+  senderLabel: { color: colors.faint, fontSize: 9, marginTop: 3 },
   promptRow: { flexGrow: 0 },
   promptContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 7 },
   promptChip: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 9 },

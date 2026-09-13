@@ -13,13 +13,35 @@ export type VerificationLevel =
 /** Buyer's minimum acceptable condition. 'Any' accepts every grade. */
 export type MinimumCondition = 'Any' | 'Standard' | 'Premium';
 
+/** Which side of the market the demo device is currently acting as. */
+export type DemoRole = 'buyer' | 'seller';
+
 /** One message in a buyer-to-seller conversation about a listed lot. */
 export type ChatMessage = {
   id: string;
   harvestId: string;
-  sender: 'buyer' | 'seller';
+  sender: DemoRole;
   text: string;
   sentAt: string;
+};
+
+export type SellerResponse = 'Pending' | 'Accepted' | 'Declined';
+
+/** A per-seller order request created when the buyer approves a pooled order.
+ * Carries its own display data so it stays valid even if the plan changes. */
+export type OrderRequest = {
+  id: string;
+  orderId: string;
+  harvestId: string;
+  farmerName: string;
+  buyerName: string;
+  crop: string;
+  variety: string;
+  allocatedKg: number;
+  pricePerKg: number;
+  deliveryDate: string;
+  deliveryLocation: string;
+  status: SellerResponse;
 };
 
 export type Coordinates = {
