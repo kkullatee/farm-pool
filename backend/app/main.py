@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import os
 from datetime import date
-from typing import Literal
+from typing import Literal, get_args
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, UploadFile
@@ -203,6 +203,150 @@ class PoolCoordinatorResponse(PoolCoordinatorOutput):
     approvalRequired: bool = True
 
 
+# ---------------------------------------------------------------------------
+# Wire schemas for Anthropic structured output.
+#
+# The API's structured-output compiler rejects heavily constrained schemas
+# with "Schema is too complex" (range bounds, length limits and enum lists
+# all count against the budget). So the models below are constraint-free
+# twins of the strict schemas: the API fills these, and the to_strict_*
+# mappers enforce every bound locally before anything reaches the app.
+# ---------------------------------------------------------------------------
+
+VOICE_FIELD_VALUES = set(get_args(VoiceField))
+VALID_UNITS = {"kg", "tonnes", "crates", "pallets"}
+VALID_CONDITIONS = {"Premium", "Standard", "Economy"}
+VALID_VERIFICATION = set(get_args(VerificationStatus))
+
+
+def _clamp01(value: float | None) -> float | None:
+    return None if value is None else max(0.0, min(1.0, value))
+
+
+class PhotoScreenWire(BaseModel):
+    containsProduce: bool
+    inappropriateOrIrrelevant: bool
+    detectedCrop: str | None = None
+    cropAgreesWithListing: bool | None = None
+    imageUsable: bool
+    observations: list[str] = []
+    damageOrDefectIndicators: list[str] = []
+    confidence: float
+    requiresAnotherPhoto: bool
+    retakeReason: str | None = None
+    verificationStatus: str
+
+
+def to_strict_photo_screen(wire: PhotoScreenWire) -> PhotoScreen:
+    reason = (wire.retakeReason or "").strip()[:300] or None
+    return PhotoScreen(
+        containsProduce=wire.containsProduce,
+        inappropriateOrIrrelevant=wire.inappropriateOrIrrelevant,
+        detectedCrop=wire.detectedCrop,
+        cropAgreesWithListing=wire.cropAgreesWithListing,
+        imageUsable=wire.imageUsable,
+        observations=wire.observations[:6],
+        damageOrDefectIndicators=wire.damageOrDefectIndicators[:6],
+        confidence=_clamp01(wire.confidence) or 0.0,
+        requiresAnotherPhoto=wire.requiresAnotherPhoto,
+        retakeReason=reason,
+        verificationStatus=(
+            wire.verificationStatus
+            if wire.verificationStatus in VALID_VERIFICATION
+            else "unverified"
+        ),
+    )
+
+
+class VoiceFieldConfidenceWire(BaseModel):
+    crop: float | None = None
+    variety: float | None = None
+    quantity: float | None = None
+    unit: float | None = None
+    location: float | None = None
+    harvest_date: float | None = None
+    price_per_kg: float | None = None
+    condition: float | None = None
+    notes: float | None = None
+
+
+class VoiceExtractionWire(BaseModel):
+    crop: str | None = None
+    variety: str | None = None
+    quantity: float | None = None
+    unit: str | None = None
+    location: str | None = None
+    harvest_date: str | None = None
+    price_per_kg: float | None = None
+    condition: str | None = None
+    notes: str | None = None
+    field_confidence: VoiceFieldConfidenceWire = Field(
+        default_factory=VoiceFieldConfidenceWire
+    )
+    uncertain: list[str] = []
+    missing: list[str] = []
+    ambiguous: list[str] = []
+    conflicts: list[str] = []
+    follow_up_questions: list[str] = []
+
+
+def to_strict_voice_extraction(wire: VoiceExtractionWire) -> VoiceExtraction:
+    def known_fields(values: list[str]) -> list[VoiceField]:
+        return [v for v in values if v in VOICE_FIELD_VALUES]  # type: ignore[misc]
+
+    confidences = {
+        key: _clamp01(value)
+        for key, value in wire.field_confidence.model_dump().items()
+    }
+    unit = wire.unit if wire.unit in VALID_UNITS else None
+    condition = wire.condition if wire.condition in VALID_CONDITIONS else None
+    uncertain = known_fields(wire.uncertain)
+    # A unit or condition outside the allowed values is dropped, so flag it.
+    if wire.unit and unit is None and "unit" not in uncertain:
+        uncertain.append("unit")
+    if wire.condition and condition is None and "condition" not in uncertain:
+        uncertain.append("condition")
+    return VoiceExtraction(
+        crop=wire.crop,
+        variety=wire.variety,
+        quantity=wire.quantity,
+        unit=unit,  # type: ignore[arg-type]
+        location=wire.location,
+        harvest_date=wire.harvest_date,
+        price_per_kg=wire.price_per_kg,
+        condition=condition,  # type: ignore[arg-type]
+        notes=wire.notes,
+        field_confidence=VoiceFieldConfidence(**confidences),
+        uncertain=uncertain,
+        missing=known_fields(wire.missing),
+        ambiguous=known_fields(wire.ambiguous),
+        conflicts=wire.conflicts[:6],
+        follow_up_questions=wire.follow_up_questions[:5],
+    )
+
+
+class PoolCoordinatorOutputWire(BaseModel):
+    recommendation: str
+    confidence: float
+    evidence: list[str] = []
+    tradeoffs: list[str] = []
+    selectedReason: list[str] = []
+    excludedReason: list[str] = []
+    adjustmentSuggestions: list[str] = []
+
+
+def to_strict_coordinator_output(wire: PoolCoordinatorOutputWire) -> PoolCoordinatorOutput:
+    return PoolCoordinatorOutput(
+        recommendation=wire.recommendation.strip()[:700],
+        confidence=_clamp01(wire.confidence) or 0.0,
+        evidence=wire.evidence[:6],
+        tradeoffs=wire.tradeoffs[:6],
+        selectedReason=wire.selectedReason[:6],
+        excludedReason=wire.excludedReason[:6],
+        adjustmentSuggestions=wire.adjustmentSuggestions[:6],
+    )
+
+
 app = FastAPI(
     title="FarmPool AI API",
     version="1.2.0",
@@ -381,11 +525,11 @@ Do not claim the photo proves Brix, internal quality, food safety, exact variety
                 ],
             }
         ],
-        output_format=PhotoScreen,
+        output_format=PhotoScreenWire,
     )
-    parsed = response.parsed_output
-    if parsed is None:
+    if response.parsed_output is None:
         raise ValueError("The model did not return a photo screen")
+    parsed = to_strict_photo_screen(response.parsed_output)
     return normalise_photo_screen(parsed, crop)
 
 
@@ -506,29 +650,52 @@ def transcribe_audio(audio: bytes, filename: str, content_type: str) -> tuple[st
     return None, "unavailable"
 
 
+VOICE_JSON_FORMAT = """
+Respond with ONLY a JSON object. No markdown, no code fences, no commentary.
+Exact keys:
+- crop, variety, unit, location, harvest_date, condition, notes: string or null
+- quantity, price_per_kg: number or null
+- field_confidence: object with keys crop, variety, quantity, unit, location,
+  harvest_date, price_per_kg, condition, notes - each a 0-1 number or null
+- uncertain, missing, ambiguous: arrays of field-name strings
+- conflicts, follow_up_questions: arrays of strings
+Use null for anything the farmer did not mention.
+""".strip()
+
+
 def extract_listing(transcript: str) -> tuple[VoiceExtraction | None, str]:
+    # The extraction schema is too large for the API's structured-output
+    # compiler ("Schema is too complex"), so the model is prompted for plain
+    # JSON and the result is validated locally with the same strict rules.
+    # Any failure stays an honest "unavailable".
     if not os.getenv("ANTHROPIC_API_KEY"):
         return None, "unavailable"
     try:
         from anthropic import Anthropic
 
         today = date.today().isoformat()
-        client = Anthropic()
-        response = client.messages.parse(
+        client = Anthropic(timeout=60.0)
+        response = client.messages.create(
             model=ANTHROPIC_MODEL,
             max_tokens=2048,
             system=(
                 f"{VOICE_EXTRACTION_SYSTEM}\n"
                 f"- Today is {today}. Convert relative dates like 'next Friday' or "
                 "'in two weeks' into YYYY-MM-DD, and add harvest_date to uncertain "
-                "when you converted a relative date."
+                "when you converted a relative date.\n\n"
+                f"{VOICE_JSON_FORMAT}"
             ),
             messages=[{"role": "user", "content": transcript}],
-            output_format=VoiceExtraction,
         )
-        if response.parsed_output is None:
+        text = "".join(
+            block.text for block in response.content if block.type == "text"
+        )
+        # Defensive trim in case the model added anything around the object.
+        start, end = text.find("{"), text.rfind("}")
+        if start < 0 or end <= start:
             return None, "unavailable"
-        return clean_voice_extraction(response.parsed_output), "claude"
+        wire = VoiceExtractionWire.model_validate_json(text[start : end + 1])
+        return clean_voice_extraction(to_strict_voice_extraction(wire)), "claude"
     except Exception:
         return None, "unavailable"
 
@@ -659,11 +826,11 @@ Return concise user-facing explanations only. Do not reveal hidden chain-of-thou
                 + request.model_dump_json(indent=2),
             }
         ],
-        output_format=PoolCoordinatorOutput,
+        output_format=PoolCoordinatorOutputWire,
     )
-    parsed = response.parsed_output
-    if parsed is None:
+    if response.parsed_output is None:
         raise ValueError("The model did not return a pool coordination result")
+    parsed = to_strict_coordinator_output(response.parsed_output)
     return PoolCoordinatorResponse(
         **parsed.model_dump(),
         source="claude",
